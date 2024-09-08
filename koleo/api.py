@@ -106,11 +106,11 @@ class KoleoAPI:
         params = {"brand": brand_name, "nr": number}
         if name:
             params["name"] = name.upper()  # WHY!!!!!!!!!
-        return self._get_json("/api/v2/main/train_calendars", params=params)
+        return self._get_json("/pl/train_calendars", params=params)
 
     def get_train(self, id: int) -> TrainDetailResponse:
         # https://koleo.pl/pl/trains/142821312
-        return self._get_json(f"/api/v2/main/trains/{id}")
+        return self._get_json(f"/pl/trains/{id}")
 
     def get_connections(
         self,

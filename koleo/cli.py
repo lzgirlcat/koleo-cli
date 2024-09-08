@@ -6,7 +6,7 @@ from rich.traceback import install
 
 from .api import KoleoAPI
 from .types import TrainOnStationInfo, TrainDetailResponse
-from .utils import name_to_slug, parse_datetime, time_dict_to_dt
+from .utils import name_to_slug, parse_datetime, time_dict_to_dt, convert_platform_number
 from .storage import Storage, DEFAULT_CONFIG_PATH
 
 install(show_locals=True)
@@ -87,24 +87,24 @@ class CLI:
 
     def train_info(self, brand: str, name: str, date: datetime):
         brand = brand.upper().strip()
-        name = name.upper().strip()
-        cache_id = f"tc-{brand}-{name}"
+        name = name.strip()
         if name.isnumeric():
             number = int(name)
-            name = ""
-        elif len(parts := name.split(" ")) == 2 or len(parts := name.split("-")) == 2:
-            number, name = parts
+            train_name = ""
+        elif len((parts := name.split(" "))) == 2 or len((parts := name.split("-"))) == 2:
+            number, train_name = parts
             number = int(number)
         else:
             raise ValueError("Invalid train name!")
+        cache_id = f"tc-{brand}-{number}-{name}"
         train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
-            cache_id, self.client.get_train_calendars(brand, number, name)
+            cache_id, self.client.get_train_calendars(brand, number, train_name)
         )
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         train_id = train_calendars["train_calendars"][0]["date_train_map"][date.strftime("%Y-%m-%d")]
         train_details = self.client.get_train(train_id)
         brand = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {}).get("name", "")
-        data = f"{brand} {train_details["train"]["train_full_name"]}\n"
+        parts = [f"{brand} {train_details["train"]["train_full_name"]}"]
         vehicle_types: dict[str, str] = {
             stop["station_display_name"]: stop["vehicle_type"]
             for stop in train_details["stops"]
@@ -115,10 +115,10 @@ class CLI:
             start = keys[0]
             for i in range(1, len(keys)):
                 if vehicle_types[keys[i]] != vehicle_types[start]:
-                    data += f"[bold green]  {start} - {keys[i]}:[/bold green] {vehicle_types[start]}\n"
+                    parts.append(f"[bold green]  {start} - {keys[i]}:[/bold green] {vehicle_types[start]}")
                     start = keys[i]
-            data += f"[bold green]  {start} - {keys[-1]}:[/bold green] {vehicle_types[start]}"
-        self.console.print(data)
+            parts.append(f"[bold green]  {start} - {keys[-1]}:[/bold green] {vehicle_types[start]}")
+        self.console.print("\n".join(parts))
         self.console.print(self.train_route_table(train_details))
 
     def route(self, start: str, end: str, date: datetime, direct: bool = False, purchasable: bool = False):
@@ -147,8 +147,9 @@ class CLI:
         for stop in train["stops"]:
             arr = time_dict_to_dt(stop["arrival"])
             dep = time_dict_to_dt(stop["departure"])
+            platform = convert_platform_number(stop["platform"]) or ""
             parts.append(
-                f"[white underline]{stop["distance"] / 1000:0.4}km[/white underline] [bold green]{arr.strftime("%H:%M")}[/bold green] - [bold red]{dep.strftime("%H:%M")}[/bold red] [purple] {stop["station_display_name"]} {stop["platform"]} [/purple]"
+                f"[white underline]{stop["distance"] / 1000:^5.1f}km[/white underline] [bold green]{arr.strftime("%H:%M")}[/bold green] - [bold red]{dep.strftime("%H:%M")}[/bold red] [purple]{stop["station_display_name"]} {platform} [/purple]"
             )
         return "\n".join(parts)
 

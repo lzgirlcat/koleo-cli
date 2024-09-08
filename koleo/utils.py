@@ -39,3 +39,23 @@ TRANSLITERATIONS = {
 
 def name_to_slug(name: str) -> str:
     return "".join([TRANSLITERATIONS.get(char, char) for char in name.lower()])
+
+
+NUMERAL_TO_ARABIC = {
+    "I": 1,
+    "II": 2,
+    "III": 3,
+    "IV": 4,
+    "V": 5,
+    "VI": 6,
+    "VII": 7,
+    "VIII": 8,
+    "IX": 9,
+    "X": 10,
+    "XI": 11, # wtf poznań???
+    "XII": 12 # just to be safe
+}
+
+
+def convert_platform_number(number: str) -> int | None:
+    return NUMERAL_TO_ARABIC.get(number)
