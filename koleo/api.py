@@ -1,53 +1,59 @@
 import typing as t
 from datetime import datetime
 
-from requests import Session, PreparedRequest, Response
+from requests import PreparedRequest, Response, Session
 
 from koleo.types import *
 
 
-class KoleoAPIException(Exception):
-    status: int
-    request: PreparedRequest
-    response: Response
-
-    def __init__(self, response: Response, *args: object) -> None:
-        super().__init__(*args)
-        self.status = response.status_code
-        self.request = response.request
-        self.response = response
-
-    @classmethod
-    def from_response(cls, response: Response) -> "KoleoAPIException":
-        if response.status_code == 404:
-            return KoleoNotFound(response)
-        elif response.status_code == 401:
-            return KoleoUnauthorized(response)
-        elif response.status_code == 403:
-            return KoleoForbidden(response)
-        elif response.status_code == 429:
-            return KoleoRatelimited(response)
-        else:
-            return KoleoAPIException(response)
 
 
-class KoleoNotFound(KoleoAPIException):
-    pass
 
 
-class KoleoForbidden(KoleoAPIException):
-    pass
+
+class errors:
+    class KoleoAPIException(Exception):
+        status: int
+        request: PreparedRequest
+        response: Response
+
+        def __init__(self, response: Response, *args: object) -> None:
+            super().__init__(*args)
+            self.status = response.status_code
+            self.request = response.request
+            self.response = response
+
+        @classmethod
+        def from_response(cls, response: Response) -> "t.Self":
+            if response.status_code == 404:
+                return errors.KoleoNotFound(response)
+            elif response.status_code == 401:
+                return errors.KoleoUnauthorized(response)
+            elif response.status_code == 403:
+                return errors.KoleoForbidden(response)
+            elif response.status_code == 429:
+                return errors.KoleoRatelimited(response)
+            else:
+                return cls(response)
+
+    class KoleoNotFound(KoleoAPIException):
+        pass
+
+    class KoleoForbidden(KoleoAPIException):
+        pass
 
 
-class KoleoUnauthorized(KoleoAPIException):
-    pass
+    class KoleoUnauthorized(KoleoAPIException):
+        pass
 
 
-class KoleoRatelimited(KoleoAPIException):
-    pass
+    class KoleoRatelimited(KoleoAPIException):
+        pass
 
 
 class KoleoAPI:
+    errors = errors
+
     def __init__(self) -> None:
         self.session = Session()
         self.base_url = "https://koleo.pl"
@@ -61,16 +67,22 @@ class KoleoAPI:
         headers = {**self.base_headers, **kwargs.get("headers", {})}
         r = self.session.get(self.base_url + path, *args, headers=headers, **kwargs)
         if not r.ok:
-            raise KoleoAPIException.from_response(r)
+            raise errors.KoleoAPIException.from_response(r)
         return r
 
     def _get_json(self, path, *args, **kwargs) -> t.Any:
         r = self._get(path, *args, **kwargs)
-        return r.json()
+        res = r.json()
+        if res is None:
+            raise self.errors.KoleoNotFound(r)
+        return res
 
     def _get_bytes(self, path, *args, **kwargs) -> bytes:
         r = self._get(path, *args, **kwargs)
         return r.content
+
+    def get_stations(self) -> list[ExtendedStationInfo]:
+        return self._get_json("/api/v2/main/stations")
 
     def find_station(self, query: str, language: str = "pl") -> list[ExtendedStationInfo]:
         # https://koleo.pl/ls?q=tere&language=pl
@@ -119,7 +131,7 @@ class KoleoAPI:
         brand_ids: list[int],
         date: datetime,
         direct: bool = False,
-        purchasable: bool = False
+        purchasable: bool = False,
     ) -> ...:
         params = {
             "query[date]": date.strftime("%d-%m-%Y %H:%M:%S"),
@@ -127,7 +139,7 @@ class KoleoAPI:
             "query[end_station]": end,
             "query[only_purchasable]": purchasable,
             "query[direct]": direct,
-            "query[brand_ids]": brand_ids
+            "query[brand_ids][]": brand_ids,
         }
         return self._get_json("/api/v2/main/connections", params=params)
 

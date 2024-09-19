@@ -1,11 +1,11 @@
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 from .types import TimeDict
 
 
 def parse_datetime(s: str):
-    now = datetime.today()
     try:
+        now = datetime.now()
         dt = datetime.strptime(s, "%d-%m")
         return dt.replace(year=now.year, hour=0, minute=0)
     except ValueError:
@@ -14,12 +14,16 @@ def parse_datetime(s: str):
         return datetime.strptime(s, "%Y-%m-%d").replace(hour=0, minute=0)
     except ValueError:
         pass
-    return datetime.combine(now, datetime.strptime(s, "%H:%M").time())
+    if s[0] == "+":
+        return datetime.now().replace(hour=0, minute=0) + timedelta(days=int(s[1:]))
+    return datetime.combine(datetime.now(), datetime.strptime(s, "%H:%M").time())
 
 
-def time_dict_to_dt(s: TimeDict):
+def arr_dep_to_dt(i: TimeDict | str):
+    if isinstance(i, str):
+        return datetime.fromisoformat(i)
     now = datetime.today()
-    return datetime.combine(now, time(s["hour"], s["minute"], s["second"]))
+    return datetime.combine(now, time(i["hour"], i["minute"], i["second"]))
 
 
 TRANSLITERATIONS = {
@@ -52,8 +56,8 @@ NUMERAL_TO_ARABIC = {
     "VIII": 8,
     "IX": 9,
     "X": 10,
-    "XI": 11, # wtf poznań???
-    "XII": 12 # just to be safe
+    "XI": 11,  # wtf poznań???
+    "XII": 12,  # just to be safe
 }
 
 

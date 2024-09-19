@@ -12,6 +12,7 @@ class ExtendedBaseStationInfo(BaseStationInfo):
     hits: int
     version: str  # "A", "B"
     is_group: bool
+    city: str | None
     region: str
     country: str
     latitude: float
@@ -175,3 +176,9 @@ class TrainStop(t.TypedDict):
 class TrainDetailResponse(t.TypedDict):
     train: TrainDetail
     stops: list[TrainStop]
+
+
+class ConnectiontrainDetail(TrainDetail):
+
+    arrival: TimeDict | str # WTF KOLEO!!!!
+    departure: TimeDict | str # WTF KOLEO!!!!

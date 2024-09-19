@@ -1,9 +1,10 @@
 import typing as t
-from time import time
-from dataclasses import dataclass, asdict, field
-from sys import platform
+from dataclasses import asdict, dataclass, field
 from json import dump, load
-from os import makedirs, path as ospath
+from os import makedirs
+from os import path as ospath
+from sys import platform
+from time import time
 
 
 def get_adequate_config_path():
@@ -42,7 +43,7 @@ class Storage:
         else:
             data = {}
         storage = cls(**data)
-        storage._path = path
+        storage._path = expanded
         return storage
 
     def get_cache(self, id: str) -> t.Any | None:
@@ -62,10 +63,9 @@ class Storage:
         return item
 
     def save(self):
-        expanded = ospath.expanduser(self._path)
-        dir = ospath.dirname(expanded)
+        dir = ospath.dirname(self._path)
         if dir:
             if not ospath.exists(dir):
                 makedirs(dir)
-        with open(expanded, "w+") as f:
-            dump(asdict(self), f)
+        with open(self._path, "w+") as f:
+            dump(asdict(self), f, indent=True)
