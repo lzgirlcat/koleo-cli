@@ -86,7 +86,7 @@ class KoleoAPI:
 
     def find_station(self, query: str, language: str = "pl") -> list[ExtendedStationInfo]:
         # https://koleo.pl/ls?q=tere&language=pl
-        return self._get_json("/ls", query={"q": query, "language": language})
+        return self._get_json("/ls", params={"q": query, "language": language})["stations"]
 
     def get_station_by_slug(self, slug: str) -> ExtendedBaseStationInfo:
         # https://koleo.pl/api/v2/main/stations/by_slug/inowroclaw
