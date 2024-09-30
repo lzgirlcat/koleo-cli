@@ -178,7 +178,60 @@ class TrainDetailResponse(t.TypedDict):
     stops: list[TrainStop]
 
 
-class ConnectiontrainDetail(TrainDetail):
-
+class ConnectionTrainStop(t.TypedDict):
     arrival: TimeDict | str # WTF KOLEO!!!!
     departure: TimeDict | str # WTF KOLEO!!!!
+    distance: int
+    in_path: bool
+    station_id: int
+    next_day: bool
+    position: int
+    train_nr: int
+    brand_id: int
+    entry_only: bool
+    exit_only: bool
+    platform: str
+    track: str
+    on_demand: bool
+
+
+class ConnectiontrainDetail(TrainDetail):
+    arrival: TimeDict | str # WTF KOLEO!!!!
+    departure: TimeDict | str # WTF KOLEO!!!!
+    stops: list[ConnectionTrainStop]
+    bookable: bool
+    train_attribute_ids: list[int]
+    travel_time: int
+    direction: str
+    start_station_id: int
+    end_station_id: int
+    fixed_carriage_composition: bool
+    is_option_groups_available: bool
+
+
+class ErrorDict(t.TypedDict):
+    type: str
+    value: str
+
+
+class ConnectionDetail(t.TypedDict):
+    id: int
+    distance: int
+    purchasable: bool
+    purchasable_errors: list[ErrorDict]
+    travel_time: int
+    changes: int
+    needs_document: bool
+    brand_ids: list[int]
+    start_station_id: int
+    end_station_id: int
+    arrival: TimeDict | str # WTF KOLEO!!!!
+    departure: TimeDict | str # WTF KOLEO!!!!
+    bookable: bool
+    special_event_slug: str | None
+    is_advanced_travel_options: bool
+    is_child_birthday_required: bool
+    max_passengers_count: bool
+    constriction_info: list[str]
+    is_estimated_timetable_available: bool
+    trains: list[ConnectiontrainDetail]

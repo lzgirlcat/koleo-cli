@@ -6,11 +6,6 @@ from requests import PreparedRequest, Response, Session
 from koleo.types import *
 
 
-
-
-
-
-
 class errors:
     class KoleoAPIException(Exception):
         status: int
@@ -88,6 +83,12 @@ class KoleoAPI:
         # https://koleo.pl/ls?q=tere&language=pl
         return self._get_json("/ls", params={"q": query, "language": language})["stations"]
 
+    def get_station_by_id(self, id: int) -> ExtendedBaseStationInfo:
+        # https://koleo.pl/api/v2/main/stations/by_id/24000
+        return self._get_json(
+            f"/api/v2/main/stations/by_id/{id}",
+        )
+
     def get_station_by_slug(self, slug: str) -> ExtendedBaseStationInfo:
         # https://koleo.pl/api/v2/main/stations/by_slug/inowroclaw
         return self._get_json(
@@ -132,16 +133,16 @@ class KoleoAPI:
         date: datetime,
         direct: bool = False,
         purchasable: bool = False,
-    ) -> ...:
+    ) -> list[ConnectionDetail]:
         params = {
             "query[date]": date.strftime("%d-%m-%Y %H:%M:%S"),
             "query[start_station]": start,
             "query[end_station]": end,
-            "query[only_purchasable]": purchasable,
-            "query[direct]": direct,
+            "query[only_purchasable]": str(direct).lower(),
+            "query[only_direct]": str(direct).lower(),
             "query[brand_ids][]": brand_ids,
         }
-        return self._get_json("/api/v2/main/connections", params=params)
+        return self._get_json("/api/v2/main/connections", params=params)["connections"]
 
     def get_brands(self) -> list[ApiBrand]:
         # https://koleo.pl/api/v2/main/brands

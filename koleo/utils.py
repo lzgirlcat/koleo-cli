@@ -16,6 +16,12 @@ def parse_datetime(s: str):
         pass
     if s[0] == "+":
         return datetime.now().replace(hour=0, minute=0) + timedelta(days=int(s[1:]))
+    try:
+        now = datetime.now()
+        dt = datetime.strptime(s, "%d-%m %H:%M")
+        return dt.replace(year=now.year)
+    except ValueError:
+        pass
     return datetime.combine(datetime.now(), datetime.strptime(s, "%H:%M").time())
 
 
@@ -58,8 +64,9 @@ NUMERAL_TO_ARABIC = {
     "X": 10,
     "XI": 11,  # wtf poznań???
     "XII": 12,  # just to be safe
+    "BUS": "BUS"
 }
 
 
-def convert_platform_number(number: str) -> int | None:
+def convert_platform_number(number: str) -> int | None | str:
     return NUMERAL_TO_ARABIC.get(number)
