@@ -106,15 +106,14 @@ class CLI:
         for st in stations:
             self.print(f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}]{st["name"]}[/bold blue] ID: {st["id"]}[/link]")
 
-    def train_info(self, brand: str, name: str, date: datetime):
+    def train_info(self, brand: str, name: list[str], date: datetime):
         brand = brand.upper().strip()
-        name = name.strip()
-        if name.isnumeric():
-            number = int(name)
+        if len(name) == 1 and name[0].isnumeric():
+            number = int(name[0])
             train_name = ""
-        elif len((parts := name.split(" "))) == 2 or len((parts := name.split("-"))) == 2:
-            number, train_name = parts
-            number = int(number)
+        elif len(name) > 1:
+            number = int(name.pop(0))
+            train_name = " ".join(name)
         else:
             raise ValueError("Invalid train name!")
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
@@ -124,9 +123,13 @@ class CLI:
                 raise ValueError("Invalid brand name!")
             brand = res
         cache_id = f"tc-{brand}-{number}-{name}"
-        train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
-            cache_id, self.client.get_train_calendars(brand, number, train_name)
-        )
+        try:
+            train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
+                cache_id, self.client.get_train_calendars(brand, number, train_name)
+            )
+        except self.client.errors.KoleoNotFound:
+            self.print(f'[bold red]Train not found: nr={number}, name="{train_name}"[/bold red]')
+            exit(2)
         train_id = train_calendars["train_calendars"][0]["date_train_map"][date.strftime("%Y-%m-%d")]
         train_details = self.client.get_train(train_id)
         brand = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {}).get("logo_text", "")
@@ -311,7 +314,7 @@ def main():
         help="Allows you to show the train's route",
     )
     train_route.add_argument("brand", help="The brand name", type=str)
-    train_route.add_argument("name", help="The train name", type=str)
+    train_route.add_argument("name", help="The train name", type=str, nargs="+")
     train_route.add_argument(
         "-d",
         "--date",
