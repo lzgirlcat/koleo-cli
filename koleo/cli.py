@@ -3,15 +3,11 @@ from argparse import ArgumentParser
 from datetime import datetime, timedelta
 
 from rich.console import Console
-from rich.traceback import install
 
 from .api import KoleoAPI
 from .storage import DEFAULT_CONFIG_PATH, Storage
 from .types import ExtendedBaseStationInfo, TrainDetailResponse, TrainOnStationInfo
 from .utils import RemainderString, arr_dep_to_dt, convert_platform_number, name_to_slug, parse_datetime
-
-
-install(show_locals=True, max_frames=2)
 
 
 class CLI:
