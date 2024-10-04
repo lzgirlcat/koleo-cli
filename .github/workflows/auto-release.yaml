@@ -46,7 +46,7 @@ jobs:
               "name": "'"${{ github.event.head_commit.message }}"'",
               "generate_release_notes": true,
               "draft": false,
-              "prerelease": false,
+              "prerelease": false
             }' https://api.github.com/repos/${{ github.repository }}/releases
       - name: Build package
         if: env.VERSION!=env.LATEST_RELEASE
