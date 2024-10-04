@@ -26,7 +26,7 @@ setuptools.setup(
     entry_points={"console_scripts": ["koleo = koleo.cli:main"]},
     install_requires=parse_requirements_file("requirements.txt"),
     include_package_data=True,
-    keywords=["koleo", "timetable", "trains", "rail", "poland"],
+    keywords=["koleo", "timetable", "trains", "rail", "poland", "pociągi"],
     project_urls={
         "Source (GitHub)": "https://github.com/lzgirlcat/koleo-cli",
         "Issue Tracker": "https://github.com/lzgirlcat/koleo-cli/issues",
