@@ -5,6 +5,9 @@ on:
     paths:
       - 'setup.py'
 
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -34,16 +37,23 @@ jobs:
         if: env.VERSION!=env.LATEST_RELEASE
         id: create_release
         run: |
-          new_tag="v${VERSION}"
-          previous_tag="${LATEST_RELEASE}"
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
-              "tag_name": "'"${new_tag}"'",
+              "tag_name": "'"${{ env.VERSION }}"'",
               "target_commitish": "'"${{ github.sha }}"'",
               "name": "'"${{ github.event.head_commit.message }}"'",
-              "body": "**Full Changelog**: https://github.com/lzgirlcat/koleo-cli/compare/${previous_tag}..${new_tag}",
+              "generate_release_notes": true,
               "draft": false,
-              "prerelease": false
+              "prerelease": false,
             }' https://api.github.com/repos/${{ github.repository }}/releases
+      - name: Build package
+        if: env.VERSION!=env.LATEST_RELEASE
+        run: python setup.py bdist_wheel sdist
+      - name: Publish package
+        if: env.VERSION!=env.LATEST_RELEASE
+        uses: pypa/gh-action-pypi-publish@27b31702a0e7fc50959f5ad993c78deac1bdfc29
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
