@@ -1,14 +1,12 @@
+# Koleo CLI
 [![PyPI - Version](https://img.shields.io/pypi/v/koleo-cli.svg)](https://pypi.org/project/koleo-cli)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/koleo-cli.svg)](https://pypi.org/project/koleo-cli)
 
-# Koleo CLI
+## Installation
+**install via pip by running** `pip install koleo-cli`
+
 
 ![gif showcasing the functionality](https://github.com/lzgirlcat/koleo-cli/blob/main/koleo-cli.gif?raw=true)
-
-
-install via pip by running
-
-`pip install koleo-cli`
 
 ## it currently allows you to:
  - get departures/arrival list for a station
