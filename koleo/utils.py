@@ -1,4 +1,5 @@
 from datetime import datetime, time, timedelta
+from argparse import Action
 
 from .types import TimeDict
 
@@ -70,3 +71,8 @@ NUMERAL_TO_ARABIC = {
 
 def convert_platform_number(number: str) -> int | None | str:
     return NUMERAL_TO_ARABIC.get(number)
+
+
+class RemainderString(Action):
+    def __call__(self, _, namespace, values: list[str], __):
+        setattr(namespace, self.dest, " ".join(values) if values else values)

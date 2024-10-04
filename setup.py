@@ -14,7 +14,7 @@ def parse_requirements_file(path):
 
 setuptools.setup(
     name="koleo-cli",
-    version="0.2.137.5",
+    version="0.2.137.6",
     description="Koleo CLI",
     long_description=long_description(),
     long_description_content_type="text/markdown",

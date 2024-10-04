@@ -8,7 +8,7 @@ from rich.traceback import install
 from .api import KoleoAPI
 from .storage import DEFAULT_CONFIG_PATH, Storage
 from .types import TrainDetailResponse, TrainOnStationInfo, ExtendedBaseStationInfo
-from .utils import convert_platform_number, name_to_slug, parse_datetime, arr_dep_to_dt
+from .utils import convert_platform_number, name_to_slug, parse_datetime, arr_dep_to_dt, RemainderString
 
 
 install(show_locals=False, max_frames=2)
@@ -106,13 +106,14 @@ class CLI:
         for st in stations:
             self.print(f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}]{st["name"]}[/bold blue] ID: {st["id"]}[/link]")
 
-    def train_info(self, brand: str, name: list[str], date: datetime):
+    def train_info(self, brand: str, name: str, date: datetime):
         brand = brand.upper().strip()
-        if len(name) == 1 and name[0].isnumeric():
-            number = int(name[0])
+        name_parts = name.split(" ")
+        if len(name_parts) == 1 and name_parts[0].isnumeric():
+            number = int(name_parts[0])
             train_name = ""
         elif len(name) > 1:
-            number = int(name.pop(0))
+            number = int(name_parts.pop(0))
             train_name = " ".join(name)
         else:
             raise ValueError("Invalid train name!")
@@ -279,7 +280,8 @@ def main():
         "station",
         help="The station name",
         default=None,
-        nargs="?",
+        nargs="*",
+        action=RemainderString,
     )
     departures.add_argument(
         "-d",
@@ -296,7 +298,8 @@ def main():
         "station",
         help="The station name",
         default=None,
-        nargs="?",
+        nargs="*",
+        action=RemainderString,
     )
     arrivals.add_argument(
         "-d",
@@ -314,7 +317,7 @@ def main():
         help="Allows you to show the train's route",
     )
     train_route.add_argument("brand", help="The brand name", type=str)
-    train_route.add_argument("name", help="The train name", type=str, nargs="+")
+    train_route.add_argument("name", help="The train name", nargs="+", action=RemainderString)
     train_route.add_argument(
         "-d",
         "--date",
@@ -329,7 +332,8 @@ def main():
         "query",
         help="The station name",
         default=None,
-        nargs="?",
+        nargs="*",
+        action=RemainderString,
     )
     stations.set_defaults(func=cli.find_station, pass_=["query"])
 
