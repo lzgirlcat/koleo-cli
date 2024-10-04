@@ -37,10 +37,8 @@ class errors:
     class KoleoForbidden(KoleoAPIException):
         pass
 
-
     class KoleoUnauthorized(KoleoAPIException):
         pass
-
 
     class KoleoRatelimited(KoleoAPIException):
         pass

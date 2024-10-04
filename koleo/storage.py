@@ -27,9 +27,9 @@ T = t.TypeVar("T")
 @dataclass
 class Storage:
     favourite_station: str | None = None
-    last_searched_connections: list[tuple[str, str]] = field(default_factory=list)
-    last_searched_stations: list[str] = field(default_factory=list)
     cache: dict[str, tuple[int, t.Any]] = field(default_factory=dict)
+    disable_cache: bool = False
+    use_roman_numerals: bool = False
 
     def __post_init__(self):
         self._path: str
@@ -47,6 +47,8 @@ class Storage:
         return storage
 
     def get_cache(self, id: str) -> t.Any | None:
+        if self.disable_cache:
+            return
         cache_result = self.cache.get(id)
         if not cache_result:
             return
@@ -58,6 +60,8 @@ class Storage:
             self.save()
 
     def set_cache(self, id: str, item: T, ttl: int = 86400) -> T:
+        if self.disable_cache:
+            return item
         self.cache[id] = (int(time() + ttl), item)
         self.save()
         return item

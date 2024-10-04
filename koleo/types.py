@@ -179,8 +179,8 @@ class TrainDetailResponse(t.TypedDict):
 
 
 class ConnectionTrainStop(t.TypedDict):
-    arrival: TimeDict | str # WTF KOLEO!!!!
-    departure: TimeDict | str # WTF KOLEO!!!!
+    arrival: TimeDict | str  # WTF KOLEO!!!!
+    departure: TimeDict | str  # WTF KOLEO!!!!
     distance: int
     in_path: bool
     station_id: int
@@ -196,8 +196,8 @@ class ConnectionTrainStop(t.TypedDict):
 
 
 class ConnectiontrainDetail(TrainDetail):
-    arrival: TimeDict | str # WTF KOLEO!!!!
-    departure: TimeDict | str # WTF KOLEO!!!!
+    arrival: TimeDict | str  # WTF KOLEO!!!!
+    departure: TimeDict | str  # WTF KOLEO!!!!
     stops: list[ConnectionTrainStop]
     bookable: bool
     train_attribute_ids: list[int]
@@ -225,8 +225,8 @@ class ConnectionDetail(t.TypedDict):
     brand_ids: list[int]
     start_station_id: int
     end_station_id: int
-    arrival: TimeDict | str # WTF KOLEO!!!!
-    departure: TimeDict | str # WTF KOLEO!!!!
+    arrival: TimeDict | str  # WTF KOLEO!!!!
+    departure: TimeDict | str  # WTF KOLEO!!!!
     bookable: bool
     special_event_slug: str | None
     is_advanced_travel_options: bool
