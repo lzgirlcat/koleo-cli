@@ -270,7 +270,7 @@ class CLI:
         return "\n".join(parts)
 
     def format_position(self, platform: str, track: str | None = None):
-        res = str(convert_platform_number(platform)) or "" if not self.storage.use_roman_numerals else platform
+        res = str(convert_platform_number(platform) or "" if not self.storage.use_roman_numerals else platform)
         if track is not None and track != "":
             res += f"/{track}"
         return res
@@ -411,6 +411,7 @@ def main():
         if storage.favourite_station:
             cli.full_departures(storage.favourite_station, datetime.now())
         else:
-            raise ValueError("favourite station not set!")
+            parser.print_help()
+            exit()
     else:
         args.func(**{k: v for k, v in args.__dict__.items() if k in getattr(args, "pass_", [])})
