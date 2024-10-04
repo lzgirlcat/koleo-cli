@@ -14,36 +14,24 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel
-
       - name: Get version from setup.py
         id: get_version
         run: |
           version=$(python setup.py --version)
-          echo "VERSION=${version}" >> $GITHUB_ENV
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
 
       - name: Get latest release
         id: get_latest_release
         run: |
           latest_release=$(curl -s https://api.github.com/repos/${{ github.repository }}/releases/latest | jq -r .tag_name)
-          echo "LATEST_RELEASE=${latest_release}" >> $GITHUB_ENV
-
-      - name: Compare versions
-        id: compare
-        run: |
-          if [ "${VERSION}" != "${LATEST_RELEASE}" ]; then
-            echo "Version has changed"
-            echo "SHOULD_RELEASE=true" >> $GITHUB_ENV
-          else
-            echo "Version has not changed"
-            echo "SHOULD_RELEASE=false" >> $GITHUB_ENV
+          echo "LATEST_RELEASE=${latest_release}" >> "$GITHUB_ENV"
 
       - name: Create release
-        if: env.SHOULD_RELEASE == 'true'
+        if: env.VERSION!=env.LATEST_RELEASE
         id: create_release
         run: |
           new_tag="v${VERSION}"
