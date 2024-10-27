@@ -89,6 +89,37 @@ class CLI:
         self.print(station_info)
         self.get_arrivals(st["id"], date)
 
+    def all_trains(self, station: str, date: datetime):
+        st = self.get_station(station)
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        self.print(station_info)
+        arr_cache_id = f"arr-{st['id']}-{date.strftime("%Y-%m-%d")}"
+        dep_cache_id = f"dep-{st['id']}-{date.strftime("%Y-%m-%d")}"
+        arrivals = self.storage.get_cache(arr_cache_id) or self.storage.set_cache(
+            arr_cache_id, self.client.get_arrivals(st['id'], date)
+        )
+        departures = self.storage.get_cache(dep_cache_id) or self.storage.set_cache(
+            dep_cache_id, self.client.get_departures(st['id'], date)
+        )
+        trains = sorted(
+            [(i, 1) for i in departures] + [(i, 2) for i in arrivals],
+            key=lambda train: datetime.fromisoformat(train[0]["departure"] if train[1] == 1 else train[0]["arrival"]).timestamp()
+        )
+        trains = [
+            (i, type)
+            for i, type in trains
+            if datetime.fromisoformat(i["departure"] if type == 1 else i["arrival"]).timestamp() > date.timestamp()  # type: ignore
+        ]
+        brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
+        parts = []
+        for train, type in trains:
+            time = f"[bold green]{train['departure'][11:16]}[/bold green]" if type == 1 else f"[bold yellow]{train['arrival'][11:16]}[/bold yellow]"
+            brand = next(iter(i for i in brands if i["id"] == train["brand_id"]), {}).get("logo_text")
+            parts.append(
+                f"{time} [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
+            )
+        self.print("\n".join(parts))
+
     def find_station(self, query: str | None):
         if query:
             stations = self.client.find_station(query)
@@ -356,6 +387,26 @@ def main():
     arrivals.add_argument("-s", "--save", help="save the station as your default one", action="store_true")
     arrivals.set_defaults(func=cli.full_arrivals, pass_=["station", "date"])
 
+    all_trains = subparsers.add_parser(
+        "all", aliases=["w", "wszystkie", "all_trains", "pociagi"], help="Allows you to list all station trains"
+    )
+    all_trains.add_argument(
+        "station",
+        help="The station name",
+        default=None,
+        nargs="*",
+        action=RemainderString,
+    )
+    all_trains.add_argument(
+        "-d",
+        "--date",
+        help="the date",
+        type=lambda s: parse_datetime(s),
+        default=datetime.now(),
+    )
+    all_trains.add_argument("-s", "--save", help="save the station as your default one", action="store_true")
+    all_trains.set_defaults(func=cli.all_trains, pass_=["station", "date"])
+
     train_route = subparsers.add_parser(
         "trainroute",
         aliases=["r", "tr", "t", "poc", "pociąg"],
@@ -445,7 +496,6 @@ def main():
         args.station = storage.favourite_station
     elif hasattr(args, "station") and args.save:
         storage.favourite_station = args.station
-        storage.save()
     if not hasattr(args, "func"):
         if storage.favourite_station:
             cli.full_departures(storage.favourite_station, datetime.now())
@@ -454,3 +504,6 @@ def main():
             exit()
     else:
         args.func(**{k: v for k, v in args.__dict__.items() if k in getattr(args, "pass_", [])})
+
+    if storage._dirty:
+        storage.save()

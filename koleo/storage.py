@@ -33,6 +33,7 @@ class Storage:
 
     def __post_init__(self):
         self._path: str
+        self._dirty = False
 
     @classmethod
     def load(cls, *, path: str = DEFAULT_CONFIG_PATH) -> t.Self:
@@ -57,13 +58,13 @@ class Storage:
             return item
         else:
             self.cache.pop(id)
-            self.save()
+            self._dirty = True
 
     def set_cache(self, id: str, item: T, ttl: int = 86400) -> T:
         if self.disable_cache:
             return item
         self.cache[id] = (int(time() + ttl), item)
-        self.save()
+        self._dirty = True
         return item
 
     def save(self):
@@ -72,4 +73,12 @@ class Storage:
             if not ospath.exists(dir):
                 makedirs(dir)
         with open(self._path, "w+") as f:
+            self.clean()
             dump(asdict(self), f, indent=True)
+
+    def clean(self):
+        now = time()
+        copy = self.cache.copy()
+        self.cache = {k: data for k, data in copy.items() if data[0] > now}
+        if copy != self.cache:
+            self._dirty = True
