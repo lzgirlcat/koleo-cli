@@ -241,11 +241,8 @@ class CLI:
             dep = arr_dep_to_dt(i["departure"])
             travel_time = (arr - dep).seconds
             parts.append(
-                f"[bold green][link=https://koleo.pl/travel-options/{i["id"]}]{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km: [/link]"
+                f"[bold green][link=https://koleo.pl/travel-options/{i["id"]}]{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km:[/link]"
             )
-            if i["constriction_info"]:
-                for constriction in i["constriction_info"]:
-                    parts.append(f" [bold red]- {constriction} [/bold red]")
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
                 stop = next(iter(i for i in train["stops"] if i["station_id"] == train["start_station_id"]), {})
@@ -258,10 +255,15 @@ class CLI:
                     )
                 )
                 brand = next(iter(i for i in api_brands if i["id"] == train["brand_id"]), {}).get("logo_text")
+                s = f" [red]{brand}[/red] {train["train_full_name"]}[purple] {stop_station['name']} {self.format_position(stop["platform"], stop["track"])}[/purple]"
                 parts[-1] += (
                     f" [red]{brand}[/red] {train["train_full_name"]}[purple] {stop_station['name']} {self.format_position(stop["platform"], stop["track"])}[/purple]"
                 )
+                for constriction in i["constriction_info"]:
+                    parts.append(f" [bold red]- {constriction}[/bold red]")
             else:
+                for constriction in i["constriction_info"]:
+                    parts.append(f" [bold red]- {constriction}[/bold red]")
                 previous_arrival: datetime | None = None
                 for train in i["trains"]:
                     brand = next(iter(i for i in api_brands if i["id"] == train["brand_id"]), {}).get("logo_text")
