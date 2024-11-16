@@ -96,14 +96,16 @@ class CLI:
         arr_cache_id = f"arr-{st['id']}-{date.strftime("%Y-%m-%d")}"
         dep_cache_id = f"dep-{st['id']}-{date.strftime("%Y-%m-%d")}"
         arrivals = self.storage.get_cache(arr_cache_id) or self.storage.set_cache(
-            arr_cache_id, self.client.get_arrivals(st['id'], date)
+            arr_cache_id, self.client.get_arrivals(st["id"], date)
         )
         departures = self.storage.get_cache(dep_cache_id) or self.storage.set_cache(
-            dep_cache_id, self.client.get_departures(st['id'], date)
+            dep_cache_id, self.client.get_departures(st["id"], date)
         )
         trains = sorted(
             [(i, 1) for i in departures] + [(i, 2) for i in arrivals],
-            key=lambda train: datetime.fromisoformat(train[0]["departure"] if train[1] == 1 else train[0]["arrival"]).timestamp()
+            key=lambda train: datetime.fromisoformat(
+                train[0]["departure"] if train[1] == 1 else train[0]["arrival"]
+            ).timestamp(),
         )
         trains = [
             (i, type)
@@ -113,7 +115,11 @@ class CLI:
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         parts = []
         for train, type in trains:
-            time = f"[bold green]{train['departure'][11:16]}[/bold green]" if type == 1 else f"[bold yellow]{train['arrival'][11:16]}[/bold yellow]"
+            time = (
+                f"[bold green]{train['departure'][11:16]}[/bold green]"
+                if type == 1
+                else f"[bold yellow]{train['arrival'][11:16]}[/bold yellow]"
+            )
             brand = next(iter(i for i in brands if i["id"] == train["brand_id"]), {}).get("logo_text")
             parts.append(
                 f"{time} [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
@@ -164,14 +170,16 @@ class CLI:
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         for calendar in train_calendars:
             brand = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {}).get("logo_text", "")
-            parts = [f"[red]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:"]
+            parts = [
+                f"[red]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:"
+            ]
             for k, v in calendar["date_train_map"].items():
                 parts.append(f"  [bold green]{k}[/bold green]: [purple]{v}[/purple]")
             self.print("\n".join(parts))
 
     def train_info(self, brand: str, name: str, date: datetime):
         train_calendars = self.get_train_calendars(brand, name)
-        if not (train_id:=train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
+        if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
             self.print(f"[bold red]This train doesn't run on the selected date: {date.strftime("%Y-%m-%d")}[/bold red]")
             exit(2)
         self.train_detail(train_id)
@@ -182,7 +190,8 @@ class CLI:
         brand = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {}).get("logo_text", "")
 
         parts = [f"[red]{brand}[/red] [bold blue]{train_details["train"]["train_full_name"]}[/bold blue]"]
-        parts.append(f"  {train_details["train"]["run_desc"]}")
+        if train_details["train"]["run_desc"]:
+            parts.append(f"  {train_details["train"]["run_desc"]}")
 
         route_start = arr_dep_to_dt(train_details["stops"][0]["departure"])
         route_end = arr_dep_to_dt(train_details["stops"][-1]["arrival"])
