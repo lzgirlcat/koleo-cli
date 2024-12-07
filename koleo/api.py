@@ -136,7 +136,7 @@ class KoleoAPI:
             "query[date]": date.strftime("%d-%m-%Y %H:%M:%S"),
             "query[start_station]": start,
             "query[end_station]": end,
-            "query[only_purchasable]": str(direct).lower(),
+            "query[only_purchasable]": str(purchasable).lower(),
             "query[only_direct]": str(direct).lower(),
             "query[brand_ids][]": brand_ids,
         }

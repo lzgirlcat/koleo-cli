@@ -223,34 +223,57 @@ class CLI:
         self.print("\n".join(parts))
         self.print(self.train_route_table(train_details))
 
-    def connections(self, start: str, end: str, date: datetime, brands: list[str], direct: bool, purchasable: bool):
+    def connections(
+        self,
+        start: str,
+        end: str,
+        date: datetime,
+        brands: list[str],
+        direct: bool,
+        purchasable: bool,
+        length: int = 1
+    ):
         start_station = self.get_station(start)
         end_station = self.get_station(end)
         brands = [i.lower().strip() for i in brands]
         api_brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         if not brands:
-            connection_brands = [i["id"] for i in api_brands]
+            connection_brands = {i["name"]: i["id"] for i in api_brands}
         else:
-            connection_brands = [
-                i["id"]
+            connection_brands = {
+                i["name"]:i["id"]
                 for i in api_brands
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
-            ]
+            }
             if not connection_brands:
                 self.print(f'[bold red]No brands match: "{', '.join(brands)}"[/bold red]')
                 exit(2)
-        connections = self.client.get_connections(
-            start_station["name_slug"], end_station["name_slug"], connection_brands, date, direct, purchasable
+        results = []
+        fetch_date = date
+        while len(results) < length:
+            connections = self.client.get_connections(
+                start_station["name_slug"], end_station["name_slug"], list(connection_brands.values()), fetch_date, direct, purchasable
+            )
+            if connections:
+                fetch_date = arr_dep_to_dt(connections[-1]["departure"]) + timedelta(seconds=(30*60)+1) # wtf
+                results.extend(connections)
+            else:
+                break
+        link = (
+            f"https://koleo.pl/rozklad-pkp/{start_station["name_slug"]}/{end_station["name_slug"]}"
+            + f"/{date.strftime("%d-%m-%Y_%H:%M")}"
+            +f"{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
-            f"[bold blue]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/bold blue]"
+            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
         ]
-        for i in connections:
+        for i in results:
             arr = arr_dep_to_dt(i["arrival"])
             dep = arr_dep_to_dt(i["departure"])
             travel_time = (arr - dep).seconds
+            date_part = f"{arr.strftime("%d-%m")} " if arr.date() != date.date() else ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/travel-options/{i["id"]}]{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km:[/link]"
+                f"[bold green][link=https://koleo.pl/travel-options/{i["id"]}]{date_part}{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
@@ -494,7 +517,14 @@ def main():
         action="store_true",
         default=False,
     )
-    connections.set_defaults(func=cli.connections, pass_=["start", "end", "brands", "date", "direct", "purchasable"])
+    connections.add_argument(
+        "-l",
+        "--length",
+        help="fetch at least n connections",
+        type=int,
+        default=1,
+    )
+    connections.set_defaults(func=cli.connections, pass_=["start", "end", "brands", "date", "direct", "purchasable", "length"])
 
     args = parser.parse_args()
 
