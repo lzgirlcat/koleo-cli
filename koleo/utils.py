@@ -69,8 +69,8 @@ NUMERAL_TO_ARABIC = {
 }
 
 
-def convert_platform_number(number: str) -> int | None | str:
-    if number[-1] in "abcdefghi": # just to be safe...
+def convert_platform_number(number: str | None) -> int | None | str:
+    if number and number[-1] in "abcdefghi": # just to be safe...
         arabic = NUMERAL_TO_ARABIC.get(number[:-1])
         return f"{arabic}{number[-1]}" if arabic else None
     return NUMERAL_TO_ARABIC.get(number)
