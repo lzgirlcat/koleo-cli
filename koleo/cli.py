@@ -224,14 +224,7 @@ class CLI:
         self.print(self.train_route_table(train_details))
 
     def connections(
-        self,
-        start: str,
-        end: str,
-        date: datetime,
-        brands: list[str],
-        direct: bool,
-        purchasable: bool,
-        length: int = 1
+        self, start: str, end: str, date: datetime, brands: list[str], direct: bool, purchasable: bool, length: int = 1
     ):
         start_station = self.get_station(start)
         end_station = self.get_station(end)
@@ -241,7 +234,7 @@ class CLI:
             connection_brands = {i["name"]: i["id"] for i in api_brands}
         else:
             connection_brands = {
-                i["name"]:i["id"]
+                i["name"]: i["id"]
                 for i in api_brands
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
             }
@@ -252,17 +245,22 @@ class CLI:
         fetch_date = date
         while len(results) < length:
             connections = self.client.get_connections(
-                start_station["name_slug"], end_station["name_slug"], list(connection_brands.values()), fetch_date, direct, purchasable
+                start_station["name_slug"],
+                end_station["name_slug"],
+                list(connection_brands.values()),
+                fetch_date,
+                direct,
+                purchasable,
             )
             if connections:
-                fetch_date = arr_dep_to_dt(connections[-1]["departure"]) + timedelta(seconds=(30*60)+1) # wtf
+                fetch_date = arr_dep_to_dt(connections[-1]["departure"]) + timedelta(seconds=(30 * 60) + 1)  # wtf
                 results.extend(connections)
             else:
                 break
         link = (
             f"https://koleo.pl/rozklad-pkp/{start_station["name_slug"]}/{end_station["name_slug"]}"
             + f"/{date.strftime("%d-%m-%Y_%H:%M")}"
-            +f"{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
+            + f"{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
             f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
@@ -524,7 +522,9 @@ def main():
         type=int,
         default=1,
     )
-    connections.set_defaults(func=cli.connections, pass_=["start", "end", "brands", "date", "direct", "purchasable", "length"])
+    connections.set_defaults(
+        func=cli.connections, pass_=["start", "end", "brands", "date", "direct", "purchasable", "length"]
+    )
 
     args = parser.parse_args()
 
