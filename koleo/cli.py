@@ -6,7 +6,7 @@ from rich.console import Console
 
 from .api import KoleoAPI
 from .storage import DEFAULT_CONFIG_PATH, Storage
-from .types import ExtendedBaseStationInfo, TrainDetailResponse, TrainOnStationInfo, TrainCalendar
+from .types import ExtendedBaseStationInfo, TrainCalendar, TrainOnStationInfo, TrainStop
 from .utils import RemainderString, arr_dep_to_dt, convert_platform_number, name_to_slug, parse_datetime
 
 
@@ -79,19 +79,19 @@ class CLI:
 
     def full_departures(self, station: str, date: datetime):
         st = self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         self.get_departures(st["id"], date)
 
     def full_arrivals(self, station: str, date: datetime):
         st = self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/przyjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         self.get_arrivals(st["id"], date)
 
     def all_trains(self, station: str, date: datetime):
         st = self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         arr_cache_id = f"arr-{st['id']}-{date.strftime("%Y-%m-%d")}"
         dep_cache_id = f"dep-{st['id']}-{date.strftime("%Y-%m-%d")}"
@@ -103,8 +103,10 @@ class CLI:
         )
         trains = sorted(
             [(i, 1) for i in departures] + [(i, 2) for i in arrivals],
-            key=lambda train: datetime.fromisoformat(
-                train[0]["departure"] if train[1] == 1 else train[0]["arrival"]
+            key=lambda train: (
+                datetime.fromisoformat(train[0]["departure"]) + timedelta(microseconds=1)
+                if train[1] == 1
+                else (datetime.fromisoformat(train[0]["arrival"]))
             ).timestamp(),
         )
         trains = [
@@ -169,32 +171,61 @@ class CLI:
         train_calendars = self.get_train_calendars(brand, name)
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         for calendar in train_calendars:
-            brand = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {}).get("logo_text", "")
+            brand_obj = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {})
+            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-")}"
+            brand = brand_obj.get("logo_text", "")
             parts = [
-                f"[red]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:"
+                f"[red][link={link}]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:[/link]"
             ]
-            for k, v in calendar["date_train_map"].items():
+            for k, v in sorted(calendar["date_train_map"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d")):
                 parts.append(f"  [bold green]{k}[/bold green]: [purple]{v}[/purple]")
             self.print("\n".join(parts))
 
-    def train_info(self, brand: str, name: str, date: datetime):
+    def train_info(
+        self, brand: str, name: str, date: datetime, closest: bool, show_stations: tuple[str, str] | None = None
+    ):
         train_calendars = self.get_train_calendars(brand, name)
+        if closest:
+            dates = sorted([datetime.strptime(i, "%Y-%m-%d") for i in train_calendars[0]["dates"]])
+            date = next(iter(i for i in dates if i > date)) or next(iter(i for i in reversed(dates) if i < date))
         if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
             self.print(f"[bold red]This train doesn't run on the selected date: {date.strftime("%Y-%m-%d")}[/bold red]")
             exit(2)
-        self.train_detail(train_id)
+        self.train_detail(train_id, date=date.strftime("%Y-%m-%d"), show_stations=show_stations)
 
-    def train_detail(self, train_id: int):
+    def train_detail(self, train_id: int, date: str | None = None, show_stations: tuple[str, str] | None = None):
         train_details = self.client.get_train(train_id)
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
-        brand = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {}).get("logo_text", "")
-
+        brand_obj = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {})
+        brand = brand_obj.get("logo_text", "")
         parts = [f"[red]{brand}[/red] [bold blue]{train_details["train"]["train_full_name"]}[/bold blue]"]
+
+        link = (
+            f"https://koleo.pl/pociag/{brand_obj["name"]}/{train_details["train"]["train_full_name"].replace(" ", "-")}"
+        )
+        if date:
+            link += f"/{date}"
+        parts[0] = f"[link={link}]{parts[0]}[/link]"
+
         if train_details["train"]["run_desc"]:
             parts.append(f"  {train_details["train"]["run_desc"]}")
 
-        route_start = arr_dep_to_dt(train_details["stops"][0]["departure"])
-        route_end = arr_dep_to_dt(train_details["stops"][-1]["arrival"])
+        if show_stations:
+            slugs = [self.get_station(i)["name_slug"] for i in show_stations]
+            first_stop, fs_index = next(
+                iter((i, n) for n, i in enumerate(train_details["stops"]) if i["station_slug"] == slugs[0]), {}
+            )
+            last_stop, ls_index = next(
+                iter((i, n + 1) for n, i in enumerate(train_details["stops"]) if i["station_slug"] == slugs[1]), {}
+            )
+            if fs_index >= ls_index:
+                self.print("[bold red]Station B has to be after station A (-s / --show_stations)[/bold red]")
+                exit(2)
+        else:
+            first_stop, last_stop = train_details["stops"][0], train_details["stops"][-1]
+            fs_index, ls_index = 0, len(train_details["stops"]) + 1
+        route_start = arr_dep_to_dt(first_stop["departure"])
+        route_end = arr_dep_to_dt(last_stop["arrival"])
 
         if route_end.hour < route_start.hour or (
             route_end.hour == route_start.hour and route_end.minute < route_end.minute
@@ -202,7 +233,7 @@ class CLI:
             route_end += timedelta(days=1)
 
         travel_time = route_end - route_start
-        speed = train_details["stops"][-1]["distance"] / 1000 / travel_time.seconds * 3600
+        speed = (last_stop["distance"] - first_stop["distance"]) / 1000 / travel_time.seconds * 3600
         parts.append(
             f"[white]  {travel_time.seconds//3600}h{(travel_time.seconds % 3600)/60:.0f}m {speed:^4.1f}km/h [/white]"
         )
@@ -221,7 +252,7 @@ class CLI:
                     start = keys[i]
             parts.append(f"  {start} - {keys[-1]}: [bold green]{vehicle_types[start]}[/bold green]")
         self.print("\n".join(parts))
-        self.print(self.train_route_table(train_details))
+        self.print(self.train_route_table(train_details["stops"][fs_index:ls_index]))
 
     def connections(
         self, start: str, end: str, date: datetime, brands: list[str], direct: bool, purchasable: bool, length: int = 1
@@ -260,11 +291,12 @@ class CLI:
         link = (
             f"https://koleo.pl/rozklad-pkp/{start_station["name_slug"]}/{end_station["name_slug"]}"
             + f"/{date.strftime("%d-%m-%Y_%H:%M")}"
-            + f"{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
+            + f"/{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
             f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
         ]
+
         for i in results:
             arr = arr_dep_to_dt(i["arrival"])
             dep = arr_dep_to_dt(i["departure"])
@@ -275,19 +307,26 @@ class CLI:
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
-                stop = next(iter(i for i in train["stops"] if i["station_id"] == train["start_station_id"]), {})
-                stop_station = (
-                    start_station
-                    if stop["station_id"] == start_station["id"]
-                    else self.storage.get_cache(f"st-{stop['station_id']}")
-                    or self.storage.set_cache(
-                        f"st-{stop['station_id']}", self.client.get_station_by_id(stop["station_id"])
-                    )
-                )
                 brand = next(iter(i for i in api_brands if i["id"] == train["brand_id"]), {}).get("logo_text")
-                s = f" [red]{brand}[/red] {train["train_full_name"]}[purple] {stop_station['name']} {self.format_position(stop["platform"], stop["track"])}[/purple]"
+
+                fs = next(iter(i for i in train["stops"] if i["station_id"] == train["start_station_id"]), {})
+                fs_station = (
+                    start_station
+                    if fs["station_id"] == start_station["id"]
+                    else self.storage.get_cache(f"st-{fs['station_id']}")
+                    or self.storage.set_cache(f"st-{fs['station_id']}", self.client.get_station_by_id(fs["station_id"]))
+                )
+
+                ls = next(iter(i for i in train["stops"] if i["station_id"] == train["end_station_id"]), {})
+                ls_station = (
+                    start_station
+                    if ls["station_id"] == start_station["id"]
+                    else self.storage.get_cache(f"st-{ls['station_id']}")
+                    or self.storage.set_cache(f"st-{ls['station_id']}", self.client.get_station_by_id(ls["station_id"]))
+                )
+
                 parts[-1] += (
-                    f" [red]{brand}[/red] {train["train_full_name"]}[purple] {stop_station['name']} {self.format_position(stop["platform"], stop["track"])}[/purple]"
+                    f" [red]{brand}[/red] {train["train_full_name"]}[purple] {fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple] - [purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
                 )
                 for constriction in i["constriction_info"]:
                     parts.append(f" [bold red]- {constriction}[/bold red]")
@@ -297,6 +336,8 @@ class CLI:
                 previous_arrival: datetime | None = None
                 for train in i["trains"]:
                     brand = next(iter(i for i in api_brands if i["id"] == train["brand_id"]), {}).get("logo_text")
+
+                    # first stop
 
                     fs = next(iter(i for i in train["stops"] if i["station_id"] == train["start_station_id"]), {})
                     fs_station = (
@@ -310,6 +351,8 @@ class CLI:
                     # fs_arr = arr_dep_to_dt(fs["arrival"])
                     fs_dep = arr_dep_to_dt(fs["departure"])
                     fs_info = f"[bold green]{fs_dep.strftime("%H:%M")} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
+
+                    # last stop
 
                     ls = next(iter(i for i in train["stops"] if i["station_id"] == train["end_station_id"]), {})
                     ls_station = (
@@ -336,21 +379,23 @@ class CLI:
         parts = []
         brands = self.storage.get_cache("brands") or self.storage.set_cache("brands", self.client.get_brands())
         for train in trains:
-            time = train["departure"] if type == 1 else train["arrival"]
+            time, color = (train["departure"], "green") if type == 1 else (train["arrival"], "yellow")
             assert time
             brand = next(iter(i for i in brands if i["id"] == train["brand_id"]), {}).get("logo_text")
             parts.append(
-                f"[bold green]{time[11:16]}[/bold green] [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
+                f"[bold {color}]{time[11:16]}[/bold {color}] [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
             )
         return "\n".join(parts)
 
-    def train_route_table(self, train: TrainDetailResponse):
+    def train_route_table(self, stops: list[TrainStop]):
         parts = []
-        for stop in train["stops"]:
+        last_real_distance = stops[0]["distance"]
+        for stop in stops:
             arr = arr_dep_to_dt(stop["arrival"])
             dep = arr_dep_to_dt(stop["departure"])
+            distance = stop["distance"] - last_real_distance
             parts.append(
-                f"[white underline]{stop["distance"] / 1000:^5.1f}km[/white underline] [bold green]{arr.strftime("%H:%M")}[/bold green] - [bold red]{dep.strftime("%H:%M")}[/bold red] [purple]{stop["station_display_name"]} {self.format_position(stop["platform"])} [/purple]"
+                f"[white underline]{distance / 1000:^5.1f}km[/white underline] [bold green]{arr.strftime("%H:%M")}[/bold green] - [bold red]{dep.strftime("%H:%M")}[/bold red] [purple]{stop["station_display_name"]} {self.format_position(stop["platform"])} [/purple]"
             )
         return "\n".join(parts)
 
@@ -453,7 +498,17 @@ def main():
         type=lambda s: parse_datetime(s),
         default=datetime.now(),
     )
-    train_route.set_defaults(func=cli.train_info, pass_=["brand", "name", "date"])
+    train_route.add_argument(
+        "-c",
+        "--closest",
+        help="ignores date, fetches closest date from the train calendar",
+        action="store_true",
+        default=False,
+    )
+    train_route.add_argument(
+        "-s", "--show_stations", help="limit the result to A->B", action="extend", nargs=2, type=str, default=None
+    )
+    train_route.set_defaults(func=cli.train_info, pass_=["brand", "name", "date", "closest", "show_stations"])
 
     train_calendar = subparsers.add_parser(
         "traincalendar",
@@ -469,8 +524,11 @@ def main():
         aliases=["td", "tid", "id", "idpoc"],
         help="Allows you to show the train's route given it's koleo ID",
     )
+    train_detail.add_argument(
+        "-s", "--show_stations", help="limit the result to A->B", action="extend", nargs=2, type=str, default=None
+    )
     train_detail.add_argument("train_id", help="The koleo ID", type=int)
-    train_detail.set_defaults(func=cli.train_detail, pass_=["train_id"])
+    train_detail.set_defaults(func=cli.train_detail, pass_=["train_id", "show_stations"])
 
     stations = subparsers.add_parser(
         "stations", aliases=["s", "find", "f", "stacje", "ls", "q"], help="Allows you to find stations by their name"
@@ -546,5 +604,5 @@ def main():
     else:
         args.func(**{k: v for k, v in args.__dict__.items() if k in getattr(args, "pass_", [])})
 
-    if storage._dirty:
+    if storage.dirty:
         storage.save()

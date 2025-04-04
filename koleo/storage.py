@@ -7,15 +7,14 @@ from sys import platform
 from time import time
 
 
-def get_adequate_config_path():
+def get_adequate_config_path() -> str:
     if platform == "darwin":
         # i dont fucking know nor want to
         return "~/Library/Preferences/koleo-cli/data.json"
-    elif "win" in platform:
+    if "win" in platform:
         # same with this
         return "%USERPROFILE%\\AppData\\Local\\koleo-cli\\data.json"
-    else:
-        return "~/.config/koleo-cli.json"
+    return "~/.config/koleo-cli.json"
 
 
 DEFAULT_CONFIG_PATH = get_adequate_config_path()
@@ -35,11 +34,15 @@ class Storage:
         self._path: str
         self._dirty = False
 
+    @property
+    def dirty(self) -> bool:
+        return self._dirty
+
     @classmethod
     def load(cls, *, path: str = DEFAULT_CONFIG_PATH) -> t.Self:
         expanded = ospath.expanduser(path)
         if ospath.exists(expanded):
-            with open(expanded, "r") as f:
+            with open(expanded) as f:
                 data = load(f)
         else:
             data = {}
@@ -49,10 +52,10 @@ class Storage:
 
     def get_cache(self, id: str) -> t.Any | None:
         if self.disable_cache:
-            return
+            return None
         cache_result = self.cache.get(id)
         if not cache_result:
-            return
+            return None
         expiry, item = cache_result
         if expiry > time():
             return item

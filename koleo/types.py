@@ -146,7 +146,7 @@ class TrainDetail(t.TypedDict):
     train_nr: int
     name: str | None
     train_full_name: str
-    run_desc: str  # "09.09-15.09 - w pt - nd; 16.09-29.09, 14.10-03.11 - codziennie; 30.09-06.10 - w pn; 07.10-13.10 - we wt - nd; 04.11-10.11 - w pn - sb"
+    run_desc: str  # "09.09-15.09 - w pt - nd; 16.09-29.09, 14.10-03.11 - codziennie;"
     carrier_id: int
     brand_id: int
     train_name: int  # wtf
