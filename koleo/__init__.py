@@ -1,2 +1,2 @@
 from .api import KoleoAPI
-from .types import *
+from .api.types import *

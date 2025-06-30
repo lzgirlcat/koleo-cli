@@ -1,10 +1,14 @@
 import typing as t
 from dataclasses import asdict, dataclass, field
-from json import dump, load
+from orjson import dumps, loads
 from os import makedirs
 from os import path as ospath
 from sys import platform
 from time import time
+
+
+if t.TYPE_CHECKING:
+    from yt_dlp.cookies import YoutubeDLCookieJar
 
 
 def get_adequate_config_path() -> str:
@@ -24,11 +28,53 @@ T = t.TypeVar("T")
 
 
 @dataclass
+class Auth:
+    def __post_init__(self):
+        self._cache: dict | None = None
+
+    type: t.Literal["text", "command", "yt-dlp-browser"]
+    data: str
+
+    def get_auth(self) -> dict[str, str]:
+        if self._cache:
+            return self._cache
+        if self.type == "yt-dlp-browser":
+            try:
+                from yt_dlp.cookies import extract_cookies_from_browser
+            except ImportError as e:
+                raise ImportError(
+                    "This feature requires the 'yt-dlp' package. " "Please install it with 'pip install yt-dlp'."
+                ) from e
+            browser, _, profile = self.data.partition(",")
+            cookies: "YoutubeDLCookieJar" = extract_cookies_from_browser(browser, profile or None)
+            self._cache = {
+                cookie.name: cookie.value
+                for cookie in cookies
+                if (cookie.domain == "koleo.pl" or cookie.domain.endswith(".koleo.pl")) and cookie.value
+            }
+        elif self.type == "command":
+            from subprocess import run
+
+            process = run(self.data, capture_output=True)
+            self._cache = loads(process.stdout)
+        elif self.type == "str":
+            self._cache = t.cast(dict[str, str], loads(self.data))
+        else:
+            raise ValueError(f"invalid auth.type: {self.type}")
+        return self._cache  # type: ignore
+
+
+@dataclass
 class Storage:
-    favourite_station: str | None = None
     cache: dict[str, tuple[int, t.Any]] = field(default_factory=dict)
+    favourite_station: str | None = None
     disable_cache: bool = False
     use_roman_numerals: bool = False
+    aliases: dict[str, str] = field(default_factory=dict)
+    show_connection_id: bool = False
+    use_country_flags_emoji: bool = True
+    use_station_type_emoji: bool = True
+    auth: Auth | None = None
 
     def __post_init__(self):
         self._path: str
@@ -43,7 +89,7 @@ class Storage:
         expanded = ospath.expanduser(path)
         if ospath.exists(expanded):
             with open(expanded) as f:
-                data = load(f)
+                data = {k: v for k, v in loads(f.read()).items() if k in cls.__dataclass_fields__}
         else:
             data = {}
         storage = cls(**data)
@@ -70,18 +116,26 @@ class Storage:
         self._dirty = True
         return item
 
-    def save(self):
-        dir = ospath.dirname(self._path)
-        if dir:
-            if not ospath.exists(dir):
-                makedirs(dir)
-        with open(self._path, "w+") as f:
-            self.clean()
-            dump(asdict(self), f, indent=True)
-
-    def clean(self):
+    def clean_cache(self):
         now = time()
         copy = self.cache.copy()
         self.cache = {k: data for k, data in copy.items() if data[0] > now}
         if copy != self.cache:
             self._dirty = True
+
+    def save(self):
+        dir = ospath.dirname(self._path)
+        if dir:
+            if not ospath.exists(dir):
+                makedirs(dir)
+        with open(self._path, "wb") as f:
+            self.clean_cache()
+            f.write(dumps(asdict(self)))
+
+    def add_alias(self, alias: str, station: str):
+        self.aliases[alias] = station
+        self._dirty = True
+
+    def remove_alias(self, alias: str):
+        self.aliases.pop(alias, None)
+        self._dirty = True

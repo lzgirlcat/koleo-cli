@@ -14,7 +14,7 @@ def parse_requirements_file(path):
 
 setuptools.setup(
     name="koleo-cli",
-    version="0.2.137.17",
+    version="0.2.137.18",
     description="Koleo CLI",
     long_description=long_description(),
     long_description_content_type="text/markdown",
@@ -23,7 +23,7 @@ setuptools.setup(
     license="GNU General Public License v3.0",
     url="https://github.com/lzgirlcat/koleo-cli",
     python_requires=">=3.12",
-    entry_points={"console_scripts": ["koleo = koleo.cli:main"]},
+    entry_points={"console_scripts": ["koleo = koleo.args:main"]},
     install_requires=parse_requirements_file("requirements.txt"),
     include_package_data=True,
     keywords=["koleo", "timetable", "trains", "rail", "poland"],
