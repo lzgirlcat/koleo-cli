@@ -1,4 +1,4 @@
-from .cli import main
+from .args import main
 
 
 if __name__ == "__main__":
