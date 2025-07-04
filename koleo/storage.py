@@ -74,18 +74,20 @@ class Storage:
     show_connection_id: bool = False
     use_country_flags_emoji: bool = True
     use_station_type_emoji: bool = True
+    platform_first: bool = False
     auth: Auth | None = None
 
     def __post_init__(self):
         self._path: str
         self._dirty = False
+        self._ignore_cache = False
 
     @property
     def dirty(self) -> bool:
         return self._dirty
 
     @classmethod
-    def load(cls, *, path: str = DEFAULT_CONFIG_PATH) -> t.Self:
+    def load(cls, *, path: str = DEFAULT_CONFIG_PATH, ignore_cache: bool = False) -> t.Self:
         expanded = ospath.expanduser(path)
         if ospath.exists(expanded):
             with open(expanded) as f:
@@ -94,10 +96,11 @@ class Storage:
             data = {}
         storage = cls(**data)
         storage._path = expanded
+        storage._ignore_cache = ignore_cache
         return storage
 
     def get_cache(self, id: str) -> t.Any | None:
-        if self.disable_cache:
+        if self.disable_cache or self._ignore_cache:
             return None
         cache_result = self.cache.get(id)
         if not cache_result:
@@ -122,6 +125,10 @@ class Storage:
         self.cache = {k: data for k, data in copy.items() if data[0] > now}
         if copy != self.cache:
             self._dirty = True
+
+    def clear_cache(self):
+        self.cache = {}
+        self._dirty = True
 
     def save(self):
         dir = ospath.dirname(self._path)

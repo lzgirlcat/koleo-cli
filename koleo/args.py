@@ -14,6 +14,8 @@ def main():
 
     parser = ArgumentParser("koleo", description="Koleo CLI")
     parser.add_argument("-c", "--config", help="Custom config path.", default=DEFAULT_CONFIG_PATH)
+    parser.add_argument("--ignore_cache", action="store_true", default=False)
+
     parser.add_argument("--nocolor", help="Disable color output and formatting", action="store_true", default=False)
     subparsers = parser.add_subparsers(title="actions", required=False)  # type: ignore
 
@@ -169,20 +171,20 @@ def main():
     connections.add_argument(
         "-n",
         "--direct",
-        help="whether or not the result should only include direct trains",
+        help="whether the result should only include direct trains",
         action="store_true",
         default=False,
     )
     connections.add_argument(
         "-p",
         "--include_prices",
-        help="whether or not the result should include the price",
+        help="whether the result should include the price",
         action="store_true",
         default=False,
     )
     connections.add_argument(
         "--only_purchasable",
-        help="whether or not the result should include only purchasable connections",
+        help="whether the result should include only purchasable connections",
         action="store_true",
         default=False,
     )
@@ -218,8 +220,14 @@ def main():
     train_passenger_stats.add_argument(
         "-t", "--type", help="limit the result to seats of a given type", type=str, required=False
     )
+    train_passenger_stats.add_argument(
+        "--detailed",
+        help="whether to display occupancy status for each seat",
+        action="store_true",
+        default=False,
+    )
     train_passenger_stats.set_defaults(
-        func=cli.train_passenger_stats_view, pass_=["brand", "name", "date", "stations", "type"]
+        func=cli.train_passenger_stats_view, pass_=["brand", "name", "date", "stations", "type", "detailed"]
     )
 
     train_connection_stats = subparsers.add_parser(
@@ -230,8 +238,14 @@ def main():
     train_connection_stats.add_argument(
         "-t", "--type", help="limit the result to seats of a given type", type=str, required=False
     )
+    train_connection_stats.add_argument(
+        "--detailed",
+        help="whether to display occupancy status for each seat",
+        action="store_true",
+        default=False,
+    )
     train_connection_stats.add_argument("connection_id", help="The koleo ID", type=int)
-    train_connection_stats.set_defaults(func=cli.train_connection_stats_view, pass_=["connection_id", "type"])
+    train_connection_stats.set_defaults(func=cli.train_connection_stats_view, pass_=["connection_id", "type", "detailed"])
 
     aliases = subparsers.add_parser("aliases", help="Save quick aliases for station names!")
     aliases.set_defaults(func=cli.alias_list_view)
@@ -250,9 +264,15 @@ def main():
     aliases_remove.add_argument("alias", help="The alias")
     aliases_remove.set_defaults(func=cli.alias_remove_view, pass_=["alias"])
 
+    clear_cache = subparsers.add_parser(
+        "clear_cache",
+        help="Allows you to clear koleo-cli cache",
+    )
+    clear_cache.set_defaults(func="clear_cache")
+
     args = parser.parse_args()
 
-    storage = Storage.load(path=args.config)
+    storage = Storage.load(path=args.config, ignore_cache=args.ignore_cache)
     client = KoleoAPI()
 
     async def run_view(func, *args, **kwargs):
@@ -274,6 +294,9 @@ def main():
         else:
             parser.print_help()
     else:
-        run(run_view(args.func, **{k: v for k, v in args.__dict__.items() if k in getattr(args, "pass_", [])}))
+        if args.func == "clear_cache":
+            storage.clear_cache()
+        else:
+            run(run_view(args.func, **{k: v for k, v in args.__dict__.items() if k in getattr(args, "pass_", [])}))
     if storage.dirty:
         storage.save()

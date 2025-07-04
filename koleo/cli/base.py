@@ -80,7 +80,10 @@ class BaseCli:
     def format_position(self, platform: str, track: str | None = None):
         res = str(convert_platform_number(platform) or "" if not self.storage.use_roman_numerals else platform)
         if track is not None and track != "":
-            res += f"/{track}"
+            if self.storage.platform_first:
+                res += f"/{track}"
+            else:
+                res = f"{track}/{res}"
         return res
 
     async def get_station(self, station: str) -> ExtendedStationInfo:
