@@ -104,3 +104,17 @@ class BaseCli:
     async def get_station_by_id(self, id: int):
         key = f"st-{id}"
         return self.storage.get_cache(key) or self.storage.set_cache(key, await self.client.get_station_by_id(id))
+
+    async def get_brand_by_shortcut(self, s: str, *, name: str | None = None):
+        brands = await self.get_brands()
+        s = s.upper()
+        if name and "SŁONECZNY" in name and s == "KM":
+            return "SLONECZNY" # OH MY FUCKING GOD
+        if s == "AR":
+            return "ARRIVARP"
+        if s not in [i["name"] for i in brands]:
+            res = {i["logo_text"]: i["name"] for i in brands}.get(s)
+            if not res:
+                await self.error_and_exit(f"Invalid brand name not found: [underline]{s},[/underline]")
+            return res
+        return s

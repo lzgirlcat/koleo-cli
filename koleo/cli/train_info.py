@@ -8,7 +8,7 @@ from koleo.utils import koleo_time_to_dt
 
 class TrainInfo(BaseCli):
     async def get_train_calendars(self, brand: str, name: str) -> list[TrainCalendar]:
-        brand = brand.upper().strip()
+        brand = await self.get_brand_by_shortcut(brand, name=name)
         name_parts = name.split(" ")
         if len(name_parts) == 1 and name_parts[0].isnumeric():
             number = int(name_parts[0])
@@ -18,12 +18,7 @@ class TrainInfo(BaseCli):
             train_name = " ".join(name_parts)
         else:
             raise ValueError("Invalid train name!")
-        brands = await self.get_brands()
-        if brand not in [i["name"] for i in brands]:
-            res = {i["logo_text"]: i["name"] for i in brands}.get(brand)
-            if not res:
-                raise ValueError("Invalid brand name!")
-            brand = res
+
         cache_id = f"tc-{brand}-{number}-{name}"
         try:
             train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
@@ -38,7 +33,7 @@ class TrainInfo(BaseCli):
         brands = await self.get_brands()
         for calendar in train_calendars:
             brand_obj = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {})
-            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-")}"
+            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-", count=1).replace(" ", "%20")}"
             brand = brand_obj.get("logo_text", "")
             self.print(
                 f"[red][link={link}]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:[/link]"
@@ -98,9 +93,10 @@ class TrainInfo(BaseCli):
         brands = await self.get_brands()
         brand_obj = next(iter(i for i in brands if i["id"] == train_details["train"]["brand_id"]), {})
         brand = brand_obj.get("logo_text", "")
+        url_brand = await self.get_brand_by_shortcut(brand, name=train_details["train"]["train_full_name"])
 
         link = (
-            f"https://koleo.pl/pociag/{brand_obj["name"]}/{train_details["train"]["train_full_name"].replace(" ", "-")}"
+            f"https://koleo.pl/pociag/{url_brand}/{train_details["train"]["train_full_name"].replace(" ", "-", count=1).replace(" ", "%20")}"
         )
         if date:
             link += f"/{date}"
