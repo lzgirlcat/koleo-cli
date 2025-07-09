@@ -33,7 +33,7 @@ class TrainInfo(BaseCli):
         brands = await self.get_brands()
         for calendar in train_calendars:
             brand_obj = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {})
-            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-", count=1).replace(" ", "%20")}"
+            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-", 1).replace(" ", "%20")}"
             brand = brand_obj.get("logo_text", "")
             self.print(
                 f"[red][link={link}]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:[/link]"
@@ -96,7 +96,7 @@ class TrainInfo(BaseCli):
         url_brand = await self.get_brand_by_shortcut(brand, name=train_details["train"]["train_full_name"])
 
         link = (
-            f"https://koleo.pl/pociag/{url_brand}/{train_details["train"]["train_full_name"].replace(" ", "-", count=1).replace(" ", "%20")}"
+            f"https://koleo.pl/pociag/{url_brand}/{train_details["train"]["train_full_name"].replace(" ", "-", 1).replace(" ", "%20")}"
         )
         if date:
             link += f"/{date}"
