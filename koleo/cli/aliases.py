@@ -3,7 +3,7 @@ from .base import BaseCli
 
 class Aliases(BaseCli):
     def alias_list_view(self):
-        self.print(f"[bold][green]alias[/green] → [red]station[/red][/bold]:")
+        self.print("[bold][green]alias[/green] → [red]station[/red][/bold]:")
         for n, (k, v) in enumerate(self.storage.aliases.items()):
             self.print(f"{n}. [bold][green]{k}[/green] → [red]{v}[/red][/bold]")
 

@@ -1,10 +1,12 @@
-from .train_info import TrainInfo
+import typing as t
+from asyncio import gather
 from datetime import datetime
 from asyncio import gather
 
-from koleo.api import SeatsAvailabilityResponse, SeatState
-
+from koleo.api import SeatState, SeatsAvailabilityResponse
 from koleo.utils import BRAND_SEAT_TYPE_MAPPING, koleo_time_to_dt
+
+from .train_info import TrainInfo
 from .utils import CLASS_COLOR_MAP
 
 
@@ -49,16 +51,20 @@ class Seats(TrainInfo):
             direct=True,
             date=koleo_time_to_dt(train_stops_by_slug[first_station]["departure"], base_date=date),
         )
-        connection = next(iter(i for i in connections if i["trains"][0]["train_id"] == train_details["train"]["id"]), None)
+        connection = next(
+            iter(i for i in connections if i["trains"][0]["train_id"] == train_details["train"]["id"]), None
+        )
         if connection is None:
-            await self.error_and_exit("Train not found:<")
+            await self.error_and_exit("Train connection not found:<\nplease try clearing the cache")
         connection_train = connection["trains"][0]
         if connection_train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
             await self.error_and_exit(f"Brand [underline]{connection_train["brand_id"]}[/underline] is not supported.")
         await self.show_train_header(
             train_details, train_stops_by_slug[first_station], train_stops_by_slug[last_station]
         )
-        await self.train_seat_info(connection["id"], type, connection_train["brand_id"], connection_train["train_nr"], detailed=detailed)
+        await self.train_seat_info(
+            connection["id"], type, connection_train["brand_id"], connection_train["train_nr"], detailed=detailed
+        )
 
     async def train_connection_stats_view(self, connection_id: int, type: str | None, detailed: bool = False):
         connection = await self.client.get_connection(connection_id)
@@ -72,13 +78,7 @@ class Seats(TrainInfo):
         await self.train_seat_info(connection_id, type, train["brand_id"], train["train_nr"], detailed=detailed)
 
     async def train_seat_info(
-        self,
-        connection_id: int,
-        type: str | None,
-        brand_id: int,
-        train_nr: int,
-        *,
-        detailed: bool = False
+        self, connection_id: int, type: str | None, brand_id: int, train_nr: int, *, detailed: bool = False
     ):
         seat_name_map = BRAND_SEAT_TYPE_MAPPING[brand_id]
         if type is not None:
@@ -98,26 +98,22 @@ class Seats(TrainInfo):
             for seat in result["seats"]:
                 counters[seat["state"]] += 1
             color = CLASS_COLOR_MAP.get(seat_name_map[seat_type], "")
-            self.print(f"[bold {color}]{seat_name_map[seat_type]}: [/bold {color}]")
             total = sum(i for i in counters.values())
-            self.print(
-                f"  Free: [{color}]{counters["FREE"]}/{total}, ~{counters["FREE"]/total*100:.1f}%[/{color}]"
-            )
-            self.print(
-                f"  Reserved: [{color}]{counters["RESERVED"]}[/{color}]"
-            )
-            self.print(
-                f"  Blocked: [underline {color}]{counters["BLOCKED"]}[/underline {color}]"
-            )
+            if not total:
+                continue
+            self.print(f"[bold {color}]{seat_name_map[seat_type]}: [/bold {color}]")
+            self.print(f"  Free: [{color}]{counters["FREE"]}/{total}, ~{counters["FREE"]/total*100:.1f}%[/{color}]")
+            self.print(f"  Reserved: [{color}]{counters["RESERVED"]}[/{color}]")
+            self.print(f"  Blocked: [underline {color}]{counters["BLOCKED"]}[/underline {color}]")
             taken = counters["BLOCKED"] + counters["RESERVED"]
-            self.print(
-                f"  Total: [underline {color}]{taken}/{total}, ~{taken/total*100:.1f}%[/underline {color}]"
-            )
+            self.print(f"  Total: [underline {color}]{taken}/{total}, ~{taken/total*100:.1f}%[/underline {color}]")
 
-        if detailed: # super temporary!!!!!!
+        if detailed:  # super temporary!!!!!!
             for seat_type, result in res.items():
                 type_color = CLASS_COLOR_MAP.get(seat_name_map[seat_type], "")
                 self.print(f"[bold {type_color}]{seat_name_map[seat_type]}: [/bold {type_color}]")
                 for seat in result["seats"]:
                     color = "green" if seat["state"] == "FREE" else "red"
-                    self.print(f" [{type_color}]{seat["carriage_nr"]}[/{type_color}] {seat['seat_nr']}: [{color}]{seat["state"]}[/{color}]")
+                    self.print(
+                        f" [{type_color}]{seat["carriage_nr"]}[/{type_color}] {seat['seat_nr']}: [{color}]{seat["state"]}[/{color}]"
+                    )

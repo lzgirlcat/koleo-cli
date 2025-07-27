@@ -486,3 +486,87 @@ class TrainAttribute(t.TypedDict):
     short_name: str
     rank: int
     warning: bool
+
+
+class AttributeWithAnnotation(t.TypedDict):
+    attribute_definition_id: int
+    annotation: str
+
+
+class V3LegStop(t.TypedDict):
+    station_id: int
+    arrival: str
+    departure: str
+    commercial_brand_id: int
+    internal_brand_id: int
+    train_nr: int
+    platform: str
+    track: str
+    for_alighting: bool
+    for_boarding: bool
+    request_stop: bool
+
+
+V3LegType = t.Literal["train_leg"]
+
+
+class V3ConnectionLeg(t.TypedDict):
+    leg_type: V3LegType
+    train_id: int
+    train_nr: int
+    train_name: str
+    train_full_name: str
+    operating_day: str  # YYYY-MM-DD
+    commercial_brand_id: int
+    internal_brand_id: int
+    constrictions: list[AttributeWithAnnotation]
+    duration: int  # minutes
+    origin_station_id: int
+    destination_station_id: int
+    departure: str  # iso with tz
+    arrival: str
+    departure_platform: str  # roman
+    departure_track: str  # arabic
+    arrival_platform: str
+    arrival_track: str
+    stops_before_leg: list[V3LegStop]
+    stops_in_leg: list[V3LegStop]
+    stops_after_leg: list[V3LegStop]
+    attributes: list[AttributeWithAnnotation]
+
+
+class V3ConnectionResult(t.TypedDict):
+    uuid: str
+    eol_response_version: int
+    departure: str  # datetime iso
+    arrival: str  # datetime iso
+    origin_station_id: int
+    destination_station_id: int
+    duration: int  # minutes
+    changes: int
+    constrictions: list[AttributeWithAnnotation]
+    legs: list[V3ConnectionLeg]
+
+
+class V3PricePerPassenger(t.TypedDict):
+    value: str # zł.gr
+    passenger_id: int | None
+
+
+class V3Price(t.TypedDict):
+    price: str # zł.gr
+    uncertain: bool
+    price_label: str | None
+    is_child_birthday_required: bool
+    needs_document: bool
+    purchasable: bool
+    purchasable_errors: list[ErrorDict]
+    price_per_passengers: list[V3PricePerPassenger]
+    additional_info: str
+
+
+class CarrierLine(t.TypedDict):
+    start_station_name: str
+    start_station_slug: str
+    end_station_name: str
+    end_station_slug: str

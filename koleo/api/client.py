@@ -215,7 +215,31 @@ class KoleoAPI(BaseAPIClient):
         return res.json().get("price")
 
     async def get_current_session(self) -> CurrentSession:
-        return (await self.get(f"/sessions/current", use_auth=True)).json()
+        return (await self.get("/sessions/current", use_auth=True)).json()
 
     async def get_current_user(self) -> CurrentUser:
-        return (await self.get(f"/users/current", use_auth=True)).json()
+        return (await self.get("/users/current", use_auth=True)).json()
+
+    async def v3_connection_search(
+        self,
+        start_station_id: int,
+        end_station_id: int,
+        brand_ids: list[int],
+        date: datetime,
+        direct: bool = False,
+    ) -> list[V3ConnectionResult]:
+        data = {
+            "start_id": start_station_id,
+            "end_id": end_station_id,
+            "departure_after": date.isoformat(),
+            "only_direct": direct,
+        }
+        if brand_ids:
+            data["allowed_brands"] = brand_ids
+        return (await self.post("/api/v2/main/eol_connections/search", json=data)).json()
+
+    async def v3_get_price(self, id: str) -> V3Price:
+        return (await self.get(f"/api/v2/main/eol_connections/{id}/price")).json()
+
+    async def get_carrier_lines(self, carrier_slug: str) -> list[CarrierLine]:
+        return (await self.get(f"/api/v2/main/carrier_lines/{carrier_slug}")).json()["list"]

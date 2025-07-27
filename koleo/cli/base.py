@@ -1,10 +1,11 @@
-from koleo.api import KoleoAPI
-from koleo.storage import Storage
-from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop
-from koleo.utils import koleo_time_to_dt, name_to_slug, convert_platform_number
+import re
 
 from rich.console import Console
-import re
+
+from koleo.api import KoleoAPI
+from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop
+from koleo.storage import Storage
+from koleo.utils import convert_platform_number, koleo_time_to_dt, name_to_slug
 
 
 class BaseCli:
@@ -109,7 +110,7 @@ class BaseCli:
         brands = await self.get_brands()
         s = s.upper()
         if name and "SŁONECZNY" in name and s == "KM":
-            return "SLONECZNY" # OH MY FUCKING GOD
+            return "SLONECZNY"  # OH MY FUCKING GOD
         if s == "AR":
             return "ARRIVARP"
         if s not in [i["name"] for i in brands]:

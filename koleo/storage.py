@@ -1,10 +1,11 @@
 import typing as t
 from dataclasses import asdict, dataclass, field
-from orjson import dumps, loads
 from os import makedirs
 from os import path as ospath
 from sys import platform
 from time import time
+
+from orjson import dumps, loads
 
 
 if t.TYPE_CHECKING:

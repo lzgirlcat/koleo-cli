@@ -1,11 +1,11 @@
 from asyncio import gather
+from datetime import datetime, timedelta
+
+from koleo.api.types import ConnectionDetail
+from koleo.utils import koleo_time_to_dt
 
 from .base import BaseCli
 from .utils import format_price
-
-from datetime import datetime, timedelta
-from koleo.api.types import ConnectionDetail
-from koleo.utils import koleo_time_to_dt
 
 
 class Connections(BaseCli):
@@ -33,7 +33,7 @@ class Connections(BaseCli):
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
             }
             if not connection_brands:
-                await self.error_and_exit(f'No brands match: [underline]{', '.join(brands)}[/underline]')
+                await self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
         results: list[ConnectionDetail] = []
         fetch_date = date
         while len(results) < length:

@@ -1,9 +1,10 @@
-from .base import BaseCli
 from asyncio import gather
-
 from datetime import datetime, timedelta
+
 from koleo.api.types import TrainCalendar, TrainDetailResponse, TrainStop
 from koleo.utils import koleo_time_to_dt
+
+from .base import BaseCli
 
 
 class TrainInfo(BaseCli):
@@ -22,7 +23,7 @@ class TrainInfo(BaseCli):
         cache_id = f"tc-{brand}-{number}-{name}"
         try:
             train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
-                cache_id, await self.client.get_train_calendars(brand, number, train_name)
+                cache_id, await self.client.get_train_calendars(brand, number, train_name), ttl=3600
             )
         except self.client.errors.KoleoNotFound:
             await self.error_and_exit(f"Train not found: [underline]nr={number}, name={train_name}[/underline]")
@@ -95,9 +96,7 @@ class TrainInfo(BaseCli):
         brand = brand_obj.get("logo_text", "")
         url_brand = await self.get_brand_by_shortcut(brand, name=train_details["train"]["train_full_name"])
 
-        link = (
-            f"https://koleo.pl/pociag/{url_brand}/{train_details["train"]["train_full_name"].replace(" ", "-", 1).replace(" ", "%20")}"
-        )
+        link = f"https://koleo.pl/pociag/{url_brand}/{train_details["train"]["train_full_name"].replace(" ", "-", 1).replace(" ", "%20")}"
         if date:
             link += f"/{date}"
         self.print(

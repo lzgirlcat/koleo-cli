@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
-from datetime import datetime
 from asyncio import run
+from datetime import datetime
 from inspect import isawaitable
 
 from .api import KoleoAPI
@@ -245,7 +245,9 @@ def main():
         default=False,
     )
     train_connection_stats.add_argument("connection_id", help="The koleo ID", type=int)
-    train_connection_stats.set_defaults(func=cli.train_connection_stats_view, pass_=["connection_id", "type", "detailed"])
+    train_connection_stats.set_defaults(
+        func=cli.train_connection_stats_view, pass_=["connection_id", "type", "detailed"]
+    )
 
     aliases = subparsers.add_parser("aliases", help="Save quick aliases for station names!")
     aliases.set_defaults(func=cli.alias_list_view)

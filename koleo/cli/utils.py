@@ -1,5 +1,6 @@
 from koleo.api.types import Price
 
+
 CLASS_COLOR_MAP = {
     "Klasa 2": "bright_green",
     "Economy": "bright_green",
