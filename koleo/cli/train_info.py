@@ -14,7 +14,7 @@ class TrainInfo(BaseCli):
         if len(name_parts) == 1 and name_parts[0].isnumeric():
             number = int(name_parts[0])
             train_name = ""
-        elif len(name) > 1:
+        elif len(name_parts) > 1:
             number = int(name_parts.pop(0))
             train_name = " ".join(name_parts)
         else:

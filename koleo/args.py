@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from asyncio import run
+from asyncio import run, create_task, CancelledError
 from datetime import datetime
 from inspect import isawaitable
 
@@ -280,7 +280,10 @@ def main():
     async def run_view(func, *args, **kwargs):
         res = func(*args, **kwargs)
         if isawaitable(res):
-            await res
+            try:
+                await res
+            except SystemExit:
+                ...
         await client.close()
 
     cli.client, cli.storage = client, storage

@@ -76,7 +76,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/travel-options/{i["id"]}]{date_part}{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/p/{i["id"]}]{date_part}{dep.strftime("%H:%M")} - {arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]

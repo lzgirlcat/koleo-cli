@@ -91,7 +91,7 @@ class Storage:
     def load(cls, *, path: str = DEFAULT_CONFIG_PATH, ignore_cache: bool = False) -> t.Self:
         expanded = ospath.expanduser(path)
         if ospath.exists(expanded):
-            with open(expanded) as f:
+            with open(expanded, "rb") as f:
                 data = {k: v for k, v in loads(f.read()).items() if k in cls.__dataclass_fields__}
         else:
             data = {}
