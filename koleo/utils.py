@@ -1,7 +1,7 @@
 from argparse import Action
 from datetime import datetime, time, timedelta
 
-from .api.types import CarriageType, SeatsAvailabilityResponse, TimeDict, TrainComposition
+from .api.types import SeatsAvailabilityResponse, TimeDict, TrainComposition
 
 
 def parse_datetime(s: str):

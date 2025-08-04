@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from asyncio import run, create_task, CancelledError
+from asyncio import run
 from datetime import datetime
 from inspect import isawaitable
 
@@ -287,8 +287,7 @@ def main():
         await client.close()
 
     cli.client, cli.storage = client, storage
-    cli.console.no_color = args.nocolor
-    cli.no_color = args.nocolor
+    cli.init_console(args.nocolor)
     if hasattr(args, "station") and args.station is None:
         args.station = storage.favourite_station
     elif hasattr(args, "station") and getattr(args, "save", False):

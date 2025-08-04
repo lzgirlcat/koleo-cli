@@ -1,7 +1,5 @@
 import re
 
-from rich.console import Console
-
 from koleo.api import KoleoAPI
 from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop
 from koleo.storage import Storage
@@ -18,7 +16,13 @@ class BaseCli:
         self._client = client
         self._storage = storage
         self.no_color = no_color
-        self.console = Console(color_system="standard", no_color=no_color, highlight=False)
+
+    def init_console(self, no_color: bool | None = None):
+        if no_color is not None:
+            self.no_color = no_color
+        if not self.no_color:
+            from rich.console import Console
+            self.console = Console(color_system="standard", highlight=False)
 
     def print(self, text: str, *args, **kwargs):
         if not text.strip():
