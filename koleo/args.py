@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from asyncio import run
 from datetime import datetime
 from inspect import isawaitable
+from copy import deepcopy
 
 from .api import KoleoAPI
 from .cli import CLI
@@ -153,7 +154,7 @@ def main():
 
     connections = subparsers.add_parser(
         "connections",
-        aliases=["do", "z", "szukaj", "path"],
+        aliases=["z", "szukaj", "path"],
         help="Allows you to search for connections from a to b",
     )
     connections.add_argument("start", help="The starting station", type=str)
@@ -196,9 +197,17 @@ def main():
         default=1,
     )
     connections.set_defaults(
-        func=cli.connections_view,
         pass_=["start", "end", "brands", "date", "direct", "include_prices", "only_purchasable", "length"],
     )
+    destination_connections = deepcopy(connections)
+    connections._defaults["func"] = cli.connections_view
+
+    destination_connections._remove_action(next((i for i in destination_connections._actions if i.dest=="start")))
+    destination_connections.prog.replace(" connections", " destination_connections", count=1)
+    destination_connections._defaults["start"] = None
+    destination_connections._defaults["func"] = cli.connections_view
+    subparsers._name_parser_map["do"] = destination_connections
+    subparsers._name_parser_map["to"] = destination_connections
 
     train_passenger_stats = subparsers.add_parser(
         "trainstats",
@@ -290,6 +299,8 @@ def main():
     cli.init_console(args.nocolor)
     if hasattr(args, "station") and args.station is None:
         args.station = storage.favourite_station
+    if hasattr(args, "start") and args.start is None:
+        args.start = storage.favourite_station
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station
     if not hasattr(args, "func"):
