@@ -125,7 +125,7 @@ BRAND_SEAT_TYPE_MAPPING = {
 }
 
 
-def find_empty_compartments(seats: SeatsAvailabilityResponse, composition: TrainComposition) -> list[tuple[int, int]]:
+def find_empty_compartments(seats: SeatsAvailabilityResponse) -> list[tuple[int, int]]:
     num_taken_seats_in_group: dict[tuple[int, int], int] = {}
     for seat in seats["seats"]:
         key = (int(seat["carriage_nr"]), int(seat["seat_nr"][:-1]))

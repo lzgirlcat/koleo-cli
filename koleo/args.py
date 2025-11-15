@@ -204,17 +204,16 @@ def main():
     connections._defaults["func"] = cli.connections_view
 
     destination_connections._remove_action(next((i for i in destination_connections._actions if i.dest == "start")))
-    destination_connections.prog.replace(" connections", " destination_connections", count=1)
+    destination_connections.prog.replace(" connections", " destination_connections")
     destination_connections._defaults["start"] = None
     destination_connections._defaults["func"] = cli.connections_view
     subparsers._name_parser_map["destinations"] = destination_connections
     subparsers._name_parser_map["do"] = destination_connections
     subparsers._name_parser_map["to"] = destination_connections
 
-    v3_connections.prog.replace(" connections", " v3_connections", count=1)
+    v3_connections.prog.replace(" connections", " v3_connections")
     v3_connections._defaults["func"] = cli.connections_view_v3
     subparsers._name_parser_map["z3"] = v3_connections
-
 
     train_passenger_stats = subparsers.add_parser(
         "trainstats",
@@ -305,8 +304,12 @@ def main():
     cli.client, cli.storage = client, storage
     cli.init_console(args.nocolor)
     if hasattr(args, "station") and args.station is None:
+        if storage.favourite_station is None:
+            raise ValueError("favourite_station is not set!")
         args.station = storage.favourite_station
     if hasattr(args, "start") and args.start is None:
+        if storage.favourite_station is None:
+            raise ValueError("favourite_station is not set!")
         args.start = storage.favourite_station
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station

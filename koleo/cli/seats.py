@@ -3,7 +3,7 @@ from asyncio import gather
 from datetime import datetime
 
 from koleo.api import SeatState, SeatsAvailabilityResponse
-from koleo.utils import BRAND_SEAT_TYPE_MAPPING, koleo_time_to_dt
+from koleo.utils import BRAND_SEAT_TYPE_MAPPING, koleo_time_to_dt, find_empty_compartments, find_empty_doubles
 
 from .train_info import TrainInfo
 from .utils import CLASS_COLOR_MAP

@@ -305,7 +305,11 @@ class Connections(BaseCli):
     ):
         include_prices = include_prices or only_purchasable
         start_station, end_station, api_brands, train_attributes, stations = await gather(
-            self.get_station(start), self.get_station(end), self.get_brands(), self.get_train_attributes(), self.get_stations()
+            self.get_station(start),
+            self.get_station(end),
+            self.get_brands(),
+            self.get_train_attributes(),
+            self.get_stations(),
         )
         brands = [i.lower().strip() for i in brands]
         if not brands:
@@ -365,7 +369,9 @@ class Connections(BaseCli):
                 f"[bold green][link=https://koleo.pl/connection/{i["uuid"]}]{date_part}{dep.strftime("%H:%M")} - {date_part_2}{arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m{price_str}:[/link]"
             )
             for constriction in i["constrictions"]:
-                parts.append(f" [bold red]- {train_attributes[str(constriction["attribute_definition_id"])]["name"]}: {constriction["annotation"]}[/bold red]")
+                parts.append(
+                    f" [bold red]- {train_attributes[str(constriction["attribute_definition_id"])]["name"]}: {constriction["annotation"]}[/bold red]"
+                )
             if len(i["legs"]) == 1 and not i["constrictions"]:
                 parts[-1] += " " + self.format_leg(i["legs"][0], api_brands, stations)
             else:
