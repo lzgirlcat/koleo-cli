@@ -313,6 +313,7 @@ def main():
         args.start = storage.favourite_station
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station
+        storage._dirty = True
     if not hasattr(args, "func"):
         if storage.favourite_station:
             run(run_view(cli.full_departures_view, storage.favourite_station, datetime.now()))
