@@ -270,7 +270,7 @@ SeatState = t.Literal["FREE", "RESERVED", "BLOCKED"]
 class Seat(t.TypedDict):
     carriage_nr: str  # number
     seat_nr: str  # number
-    special_compartment_id: int
+    special_compartment_type_id: int
     state: SeatState
     placement_id: int  # 1 -> okno, 2 -> korytarz, 7 -> środek
 
@@ -507,11 +507,23 @@ class V3LegStop(t.TypedDict):
     request_stop: bool
 
 
-V3LegType = t.Literal["train_leg"]
+V3LegType = t.Literal["train_leg", "station_change_leg", "walk_leg"]
 
 
-class V3ConnectionLeg(t.TypedDict):
+class V3BaseConnectionLeg(t.TypedDict):
     leg_type: V3LegType
+    duration: int  # minutes
+
+
+class V3BaseTravelLeg(V3BaseConnectionLeg):
+    origin_station_id: int
+    destination_station_id: int
+    departure: str  # iso with tz
+    arrival: str
+
+
+class V3TrainLeg(V3BaseTravelLeg):
+    leg_type: t.Literal["train_leg"]
     train_id: int
     train_nr: int
     train_name: str
@@ -520,11 +532,6 @@ class V3ConnectionLeg(t.TypedDict):
     commercial_brand_id: int
     internal_brand_id: int
     constrictions: list[AttributeWithAnnotation]
-    duration: int  # minutes
-    origin_station_id: int
-    destination_station_id: int
-    departure: str  # iso with tz
-    arrival: str
     departure_platform: str  # roman
     departure_track: str  # arabic
     arrival_platform: str
@@ -533,6 +540,19 @@ class V3ConnectionLeg(t.TypedDict):
     stops_in_leg: list[V3LegStop]
     stops_after_leg: list[V3LegStop]
     attributes: list[AttributeWithAnnotation]
+
+
+class V3StationChangeLeg(V3BaseTravelLeg):
+    leg_type: t.Literal["station_change_leg"]
+    station_id: int
+
+
+class V3WalkLeg(V3BaseTravelLeg):
+    leg_type: t.Literal["walk_leg"]
+    footpath_duration: int
+
+
+V3ConnectionLeg = t.Union[V3StationChangeLeg, V3WalkLeg, V3TrainLeg]
 
 
 class V3ConnectionResult(t.TypedDict):
@@ -549,12 +569,12 @@ class V3ConnectionResult(t.TypedDict):
 
 
 class V3PricePerPassenger(t.TypedDict):
-    value: str # zł.gr
+    value: str  # zł.gr
     passenger_id: int | None
 
 
 class V3Price(t.TypedDict):
-    price: str # zł.gr
+    price: str  # zł.gr
     uncertain: bool
     price_label: str | None
     is_child_birthday_required: bool

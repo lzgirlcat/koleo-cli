@@ -1,7 +1,7 @@
 import re
 
 from koleo.api import KoleoAPI
-from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop
+from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop, TrainAttribute
 from koleo.storage import Storage
 from koleo.utils import convert_platform_number, koleo_time_to_dt, name_to_slug
 
@@ -22,6 +22,7 @@ class BaseCli:
             self.no_color = no_color
         if not self.no_color:
             from rich.console import Console
+
             self.console = Console(color_system="standard", highlight=False)
 
     def print(self, text: str, *args, **kwargs):
@@ -123,3 +124,15 @@ class BaseCli:
                 await self.error_and_exit(f"Invalid brand name not found: [underline]{s},[/underline]")
             return res
         return s
+
+    async def get_train_attributes(self) -> dict[str, TrainAttribute]:
+        if not (train_attributes := self.storage.get_cache("train_attributes")):
+            train_attributes = {str(i["id"]): i for i in await self.client.get_train_attributes()}
+            self.storage.set_cache("train_attributes", train_attributes)
+        return train_attributes
+
+    async def get_stations(self) -> dict[str, ExtendedStationInfo]:
+        if not (stations := self.storage.get_cache("stations")):
+            stations = {str(i["id"]): i for i in await self.client.get_stations()}
+            self.storage.set_cache("stations", stations)
+        return stations

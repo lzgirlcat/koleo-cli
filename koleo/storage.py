@@ -5,7 +5,7 @@ from os import path as ospath
 from sys import platform
 from time import time
 
-from orjson import dumps, loads
+from orjson import dumps, loads, OPT_NON_STR_KEYS
 
 
 if t.TYPE_CHECKING:
@@ -138,7 +138,7 @@ class Storage:
                 makedirs(dir)
         with open(self._path, "wb") as f:
             self.clean_cache()
-            f.write(dumps(asdict(self)))
+            f.write(dumps(asdict(self), option=OPT_NON_STR_KEYS))
 
     def add_alias(self, alias: str, station: str):
         self.aliases[alias] = station

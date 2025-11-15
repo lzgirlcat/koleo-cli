@@ -150,16 +150,29 @@ class Seats(TrainInfo):
         res: dict[int, SeatsAvailabilityResponse] = {}
         for seat_type in types:
             res[seat_type] = await self.client.get_seats_availability(connection_id, train_nr, seat_type)
+        special_compartment_types = {
+            j["id"]: j for i in res.values() for j in i["special_compartment_types"] if not j["icon"] == "quiet"
+        }
         for seat_type, result in res.items():
-            counters: dict[SeatState, int] = {"FREE": 0, "RESERVED": 0, "BLOCKED": 0}
+            counters: dict[SeatState | t.Literal["SPECIAL"], int] = {
+                "FREE": 0,
+                "RESERVED": 0,
+                "BLOCKED": 0,
+                "SPECIAL": 0,
+            }
             for seat in result["seats"]:
-                counters[seat["state"]] += 1
+                if seat["special_compartment_type_id"] in special_compartment_types:
+                    counters["SPECIAL"] += 1
+                    counters[seat["state"]] += 1
+                else:
+                    counters[seat["state"]] += 1
             color = CLASS_COLOR_MAP.get(seat_name_map[seat_type], "")
             total = sum(i for i in counters.values())
             if not total:
                 continue
             self.print(f"[bold {color}]{seat_name_map[seat_type]}: [/bold {color}]")
             self.print(f"  Free: [{color}]{counters["FREE"]}/{total}, ~{counters["FREE"]/total*100:.1f}%[/{color}]")
+            # self.print(f"  Special: [{color}]{counters["SPECIAL"]}/{total}, ~{counters["SPECIAL"]/total*100:.1f}%[/{color}]")
             self.print(f"  Reserved: [{color}]{counters["RESERVED"]}[/{color}]")
             self.print(f"  Blocked: [underline {color}]{counters["BLOCKED"]}[/underline {color}]")
             taken = counters["BLOCKED"] + counters["RESERVED"]
@@ -171,6 +184,12 @@ class Seats(TrainInfo):
                 self.print(f"[bold {type_color}]{seat_name_map[seat_type]}: [/bold {type_color}]")
                 for seat in result["seats"]:
                     color = "green" if seat["state"] == "FREE" else "red"
+                    if special := special_compartment_types.get(seat["special_compartment_type_id"]):
+                        special = f", {special["icon"].upper().replace("_", " ")}"
+                        if color == "green":
+                            color = "yellow"
+                    else:
+                        special = ""
                     self.print(
-                        f" [{type_color}]{seat["carriage_nr"]}[/{type_color}] {seat['seat_nr']}: [{color}]{seat["state"]}[/{color}]"
+                        f" [{type_color}]{seat["carriage_nr"]}[/{type_color}] {seat['seat_nr']}: [{color}]{seat["state"]}{special}[/{color}]"
                     )

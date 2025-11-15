@@ -7,9 +7,7 @@ class Stations(BaseCli):
         if query:
             stations = await self.client.find_station(query)
         else:
-            stations = self.storage.get_cache("stations") or self.storage.set_cache(
-                "stations", await self.client.get_stations()
-            )
+            stations = (await self.get_stations()).values()
         for st in stations:
             result_info = ""
             if "country" in st:

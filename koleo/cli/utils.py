@@ -1,4 +1,4 @@
-from koleo.api.types import Price
+from koleo.api.types import Price, V3Price
 
 
 CLASS_COLOR_MAP = {
@@ -18,11 +18,31 @@ COUNTRY_MAP = {
     "Czechy": ("cz", "🇨🇿"),
     "Polska": ("pl", "🇵🇱"),
     "Litwa": ("lt", "🇱🇹"),
+    "Węgry": ("hu", "🇭🇺"),
+    "Francja": ("fr", "🇫🇷"),
+    "Austria": ("at", "🇦🇹"),
+    "Anglia": ("en", "🏴󠁧󠁢󠁥󠁮󠁧󠁿"),
+    "Belgia": ("be", "🇧🇪"),
+    "Niderlandy": ("nl", "🇳🇱"),
+    "Estonia": ("ee", "🇪🇪"),
+    "Chorwacja": ("hr", "🇭🇷"),
+    "Dania": ("dk", "🇩🇰"),
+    "Finlandia": ("fi", "🇫🇮"),
+    "Luksemburg": ("lu", "🇱🇺"),
+    "Rumunia": ("ro", "🇷🇴"),
+    "Szwajcaria": ("ch", "🇨🇭"),
+    "Szwecja": ("se", "🇸🇪"),
+    "Słowenia": ("si", "🇸🇮"),
+    "Wielka Brytania": ("gb", "🇬🇧"),
+    "Włochy": ("it", "🇮🇹"),
+    "Łotwa": ("lv", "🇱🇻"),
     "": ("pl", "🇵🇱"),  # we have to assume...
 }
 
 
-def format_price(price: str | Price):
+def format_price(price: str | Price | V3Price):
     if isinstance(price, dict):
-        price = price["value"]
-    return f"{float(price):.2f} zł"
+        s: str | None = price.get("price") or price.get("value")
+        if not s:
+            return ""
+    return f"{float(s):.2f} zł"
