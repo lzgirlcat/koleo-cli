@@ -66,6 +66,8 @@ class StationBoard(BaseCli):
                 if type == 1
                 else f"[bold yellow]{train['arrival'][11:16]}[/bold yellow]"  # type: ignore
             )
+            if self.no_color:
+                time = ("o" if type == 1 else "p") + time
             brand = next(iter(i for i in brands if i["id"] == train["brand_id"]), {}).get("logo_text")
             self.print(
                 f"{time} [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
