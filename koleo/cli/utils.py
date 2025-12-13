@@ -39,6 +39,25 @@ COUNTRY_MAP = {
     "": ("pl", "🇵🇱"),  # we have to assume...
 }
 
+GŁÓWNX_STATIONS = {
+    "opole": "opole-glowne",
+    "szczecin": "szczecin-glowny",
+    "gdynia": "gdynia-glowna",
+    "pila": "pila-glowna",
+    "bydgoszcz": "bydgoszcz-glowna",
+    "ilawa": "ilawa-glowna",
+    "zielona-gora": "zielona-gora-glowna",
+    "poznan": "poznan-glowny",
+    "lowicz": "lowicz-glowny",
+    "radom": "radom-glowny",
+    "lublin": "lublin-glowny",
+    # "kłodzko": "kłodzko-miasto",
+    "wroclaw": "wroclaw-glowny",
+    "kielce": "kielce-glowne",
+    "przemysl": "przemysl-glowny",
+    "rzeszow": "rzeszow-glowny",
+}
+
 
 def format_price(price: str | Price | V3Price):
     if isinstance(price, dict):

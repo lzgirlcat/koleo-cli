@@ -4,6 +4,7 @@ from koleo.api import KoleoAPI
 from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop, TrainAttribute
 from koleo.storage import Storage
 from koleo.utils import convert_platform_number, koleo_time_to_dt, name_to_slug
+from .utils import GŁÓWNX_STATIONS
 
 
 class BaseCli:
@@ -95,8 +96,15 @@ class BaseCli:
     async def get_station(self, station: str) -> ExtendedStationInfo:
         if station in self.storage.aliases:
             slug = self.storage.aliases[station]
+        elif station.isnumeric():
+            try:
+                return await self.get_station_by_id(int(station))
+            except self.client.errors.KoleoNotFound:
+                await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
         else:
             slug = name_to_slug(station)
+            if self.storage.auto_głównx and slug in GŁÓWNX_STATIONS:
+                slug = GŁÓWNX_STATIONS[slug]
         try:
             return self.storage.get_cache(f"st-{slug}") or self.storage.set_cache(
                 f"st-{slug}", await self.client.get_station_by_slug(slug)

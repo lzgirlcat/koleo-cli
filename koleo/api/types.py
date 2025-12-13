@@ -7,7 +7,7 @@ class BaseStationInfo(t.TypedDict):
     name_slug: str
 
 
-StationType = t.Literal["TopographicalPlace", "Quay", "StopPlace"]
+StationType = t.Literal["TopographicalPlace", "Quay", "StopPlace", "railStopPlace", "busStopPlace", "group"]
 TransportMode = t.Literal[
     "bus",
     "rail",
