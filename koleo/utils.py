@@ -1,7 +1,12 @@
 from argparse import Action
 from datetime import datetime, time, timedelta
+from typing import TYPE_CHECKING, Any
+from copy import deepcopy
 
 from .api.types import SeatsAvailabilityResponse, TimeDict, TrainComposition
+
+if TYPE_CHECKING:
+    from argparse import ArgumentParser, _SubParsersAction
 
 
 def parse_datetime(s: str):
@@ -167,3 +172,28 @@ def find_empty_doubles(
         if seat["state"] != "FREE":
             num_taken_seats_in_double[key] += 1
     return [k for k, v in num_taken_seats_in_double.items() if v == 0]
+
+
+def duplicate_parser(
+    a: "ArgumentParser",
+    s: "_SubParsersAction[ArgumentParser]",
+    orig_name: str,
+    name: str,
+    aliases: list[str],
+    *,
+    help: str | None = None,
+    usage: str | None = None,
+    defaults_overwrites: dict[str, Any],
+):
+    d = deepcopy(a)
+    d.prog = d.prog.replace(f" {orig_name}", f" {name}")
+    if help is not None:
+        choice_action = s._ChoicesPseudoAction(name, aliases, help)
+        s._choices_actions.append(choice_action)
+    if usage is not None:
+        d.usage = usage
+    if defaults_overwrites:
+        d._defaults = {**d._defaults, **defaults_overwrites}
+    for i in aliases:
+        s._name_parser_map[i] = d
+    return d

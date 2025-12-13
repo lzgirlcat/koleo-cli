@@ -2,12 +2,11 @@ from argparse import ArgumentParser
 from asyncio import run
 from datetime import datetime
 from inspect import isawaitable
-from copy import deepcopy
 
 from .api import KoleoAPI
 from .cli import CLI
 from .storage import DEFAULT_CONFIG_PATH, Storage
-from .utils import RemainderString, parse_datetime
+from .utils import RemainderString, parse_datetime, duplicate_parser
 
 
 def main():
@@ -197,23 +196,31 @@ def main():
         default=1,
     )
     connections.set_defaults(
+        func = cli.connections_view,
         pass_=["start", "end", "brands", "date", "direct", "include_prices", "only_purchasable", "length"],
     )
-    destination_connections = deepcopy(connections)
-    v3_connections = deepcopy(connections)
-    connections._defaults["func"] = cli.connections_view
-
-    destination_connections._remove_action(next((i for i in destination_connections._actions if i.dest == "start")))
-    destination_connections.prog.replace(" connections", " destination_connections")
-    destination_connections._defaults["start"] = None
-    destination_connections._defaults["func"] = cli.connections_view
-    subparsers._name_parser_map["destinations"] = destination_connections
-    subparsers._name_parser_map["do"] = destination_connections
-    subparsers._name_parser_map["to"] = destination_connections
-
-    v3_connections.prog.replace(" connections", " v3_connections")
-    v3_connections._defaults["func"] = cli.connections_view_v3
-    subparsers._name_parser_map["z3"] = v3_connections
+    destination_connections = duplicate_parser(
+        connections,
+        subparsers,
+        "connections",
+        "destination_connections",
+        ["destinations", "do", "to"],
+        help="Allows you to search for connections from favourite_station to x",
+        defaults_overwrites={"start": None, "func": cli.connections_view},
+    )
+    destination_connections._actions = [i for i in destination_connections._actions if i.dest != "start"]
+    destination_connections._positionals._group_actions = [
+        i for i in destination_connections._positionals._group_actions if i.dest != "start"
+    ]
+    v3_connections = duplicate_parser(
+        connections,
+        subparsers,
+        "connections",
+        "v3_connections",
+        ["z3"],
+        help="Allows you to search for connections from a to b using V3 Koleo Search",
+        defaults_overwrites={"func": cli.connections_view_v3},
+    )
 
     train_passenger_stats = subparsers.add_parser(
         "trainstats",
@@ -314,7 +321,7 @@ def main():
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station
         storage._dirty = True
-    if not hasattr(args, "func"):
+    if not hasattr(args, "func"): # todo: fix
         if storage.favourite_station:
             run(run_view(cli.full_departures_view, storage.favourite_station, datetime.now()))
         else:
