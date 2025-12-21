@@ -273,3 +273,54 @@ class KoleoAPI(BaseAPIClient):
                 "/v2/main/train_attributes",
             )
         ).json()
+
+    async def get_estimated_train_times(
+        self,
+        station_id: int,
+        date: datetime,
+        train_ids: list[int],
+        type: t.Literal["departures", "arrivals"] = "departures",
+    ) -> list[EstimatedTrainTime]:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/estimated-timetable/station/{station_id}/{date.strftime("%Y-%m-%d")}/{type}",
+                use_auth=True,
+                params={"train_ids[]": train_ids},
+            )
+        ).json()
+
+    async def get_connection_estimated_train_times(
+        self,
+        connection_id: str,
+    ) -> list[EstimatedV3ConnectionTimesResponse]:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/estimated-timetable/connections/uuid/{connection_id}",
+                use_auth=True,
+            )
+        ).json()
+
+    async def login_password(self, username: str, password: str, client_id: str) -> LoginTokenResponse:
+        return (
+            await self.post(
+                f"https://api.koleo.pl/v2/main/oauth/token",
+                json={
+                    "username": username,
+                    "password": password,
+                    "grant_type": "password",
+                    "client_id": client_id
+                }
+            )
+        ).json()
+
+    async def realtime_train_timetable(
+        self,
+        train_id: int,
+        operating_day: datetime
+    ) -> RealtimeTrainTimetable:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/train_timetable/{train_id}/{operating_day}",
+                use_auth=True,
+            )
+        ).json()

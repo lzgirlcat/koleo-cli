@@ -590,3 +590,68 @@ class CarrierLine(t.TypedDict):
     start_station_slug: str
     end_station_name: str
     end_station_slug: str
+
+CallType = t.Literal["recorded"]
+
+
+class EstimatedTrainTime(t.TypedDict):
+    call_type: CallType
+    aimed_arrival: str | None
+    aimed_departure: str | None
+    actual_arrival: str | None
+    actual_departure: str | None
+    train_id: int
+    operating_day: str # yyyy-mm-dd
+    recorded_at: str | None
+
+
+class EstimatedTrainLeg(t.TypedDict):
+    train_id: int
+    origin_station_id: int
+    destination_station_id: int
+    origin_call: str | None
+    destination_call: str | None
+
+
+class EstimatedV3ConnectionTimesResponse(t.TypedDict):
+    train_legs: list[EstimatedTrainLeg]
+
+
+class LoginTokenResponse(t.TypedDict):
+    access_token: str
+    token_type: t.Literal["Bearer"]
+    expires_in: int # 336h -> 14 dni
+    refresh_token: str
+    created_at: int
+
+
+class RealtimeTrainStop(t.TypedDict):
+    station_id: int
+    arrival: str
+    departure: str
+    commercial_brand_id: int
+    internal_brand_id: int
+    train_nr: int
+    platform: str # roman numeral
+    track: str # arabic numeral
+    request_stop: bool
+    for_alighting: bool
+    for_boarding: bool
+    expected_arrival: str | None
+    expected_departure: str | None
+    actual_arrival: str | None
+    actual_departure: str | None
+
+
+class RealtimeTrainTimetable(t.TypedDict):
+    train_id: int
+    train_nr: int
+    train_name: str
+    train_full_name: str
+    operating_day: str # yyyy-mm-dd
+    commercial_brand_id: int
+    internal_brand_id: int
+    constrictions: list[AttributeWithAnnotation]
+    train_attributes: list[AttributeWithAnnotation]
+    real_time_data_recorded_at: str | None
+    stops: list[]
