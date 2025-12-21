@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 
 from koleo.api import KoleoAPI
 from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop, TrainAttribute
@@ -60,6 +61,9 @@ class BaseCli:
     def storage(self, storage: Storage):
         self._storage = storage
 
+    def ftime(self, dt: datetime):
+        return dt.strftime("%H:%M:%S") if self.storage.show_seconds else dt.strftime("%H:%M")
+
     async def trains_on_station_table(
         self, trains: list[TrainOnStationInfo], type: int = 1, show_connection_id: bool | None = None
     ):
@@ -68,10 +72,11 @@ class BaseCli:
         for train in trains:
             time, color = (train["departure"], "green") if type == 1 else (train["arrival"], "yellow")
             assert time
+            dt = koleo_time_to_dt(time)
             brand = next(iter(i for i in brands if i["id"] == train["brand_id"]), {}).get("logo_text")
             tid = (f"{train["stations"][0]["train_id"]} ") if show_connection_id else ""
             self.print(
-                f"{tid}[bold {color}]{time[11:16]}[/bold {color}] [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
+                f"{tid}[bold {color}]{self.ftime(dt)}[/bold {color}] [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
             )
 
     def train_route_table(self, stops: list[TrainStop]):
@@ -81,7 +86,7 @@ class BaseCli:
             dep = koleo_time_to_dt(stop["departure"])
             distance = stop["distance"] - last_real_distance
             self.print(
-                f"[white underline]{distance / 1000:^5.1f}km[/white underline] [bold green]{arr.strftime("%H:%M")}[/bold green] - [bold red]{dep.strftime("%H:%M")}[/bold red] [purple]{stop["station_display_name"]} {self.format_position(stop["platform"])} [/purple]"
+                f"[white underline]{distance / 1000:^5.1f}km[/white underline] [bold green]{self.ftime(arr)}[/bold green] - [bold red]{self.ftime(dep)}[/bold red] [purple]{stop["station_display_name"]} {self.format_position(stop["platform"])} [/purple]"
             )
 
     def format_position(self, platform: str, track: str | None = None):

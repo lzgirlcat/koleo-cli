@@ -196,7 +196,7 @@ def main():
         default=1,
     )
     connections.set_defaults(
-        func = cli.connections_view,
+        func=cli.connections_view,
         pass_=["start", "end", "brands", "date", "direct", "include_prices", "only_purchasable", "length"],
     )
     destination_connections = duplicate_parser(
@@ -321,7 +321,7 @@ def main():
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station
         storage._dirty = True
-    if not hasattr(args, "func"): # todo: fix
+    if not hasattr(args, "func"):  # todo: fix
         if storage.favourite_station:
             run(run_view(cli.full_departures_view, storage.favourite_station, datetime.now()))
         else:

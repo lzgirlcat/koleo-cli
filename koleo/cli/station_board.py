@@ -2,6 +2,7 @@ from asyncio import gather
 from datetime import datetime, timedelta
 
 from .base import BaseCli
+from koleo.utils import koleo_time_to_dt
 
 
 class StationBoard(BaseCli):
@@ -19,7 +20,7 @@ class StationBoard(BaseCli):
 
     async def full_departures_view(self, station: str, date: datetime):
         st = await self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m")} {self.ftime(date)}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         trains = [
             i
@@ -30,7 +31,7 @@ class StationBoard(BaseCli):
 
     async def full_arrivals_view(self, station: str, date: datetime):
         st = await self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/przyjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/przyjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m")} {self.ftime(date)}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         trains = [
             i
@@ -41,7 +42,7 @@ class StationBoard(BaseCli):
 
     async def all_trains_view(self, station: str, date: datetime):
         st = await self.get_station(station)
-        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m %H:%M")}[/bold blue] ID: {st["id"]}[/link]"
+        station_info = f"[bold blue][link=https://koleo.pl/dworzec-pkp/{st["name_slug"]}/odjazdy/{date.strftime("%Y-%m-%d")}]{st["name"]} at {date.strftime("%d-%m")} {self.ftime(date)}[/bold blue] ID: {st["id"]}[/link]"
         self.print(station_info)
         departures, arrivals, brands = await gather(
             self.get_departures(st["id"], date), self.get_arrivals(st["id"], date), self.get_brands()
@@ -62,9 +63,9 @@ class StationBoard(BaseCli):
         ]
         for train, type in trains:
             time = (
-                f"[bold green]{train['departure'][11:16]}[/bold green]"  # type: ignore
+                f"[bold green]{self.ftime(koleo_time_to_dt(train['departure']))}[/bold green]"  # type: ignore
                 if type == 1
-                else f"[bold yellow]{train['arrival'][11:16]}[/bold yellow]"  # type: ignore
+                else f"[bold yellow]{self.ftime(koleo_time_to_dt(train['arrival']))}[/bold yellow]"  # type: ignore
             )
             if self.no_color:
                 time = ("o" if type == 1 else "p") + time

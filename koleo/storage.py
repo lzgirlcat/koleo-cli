@@ -77,6 +77,7 @@ class Storage:
     use_station_type_emoji: bool = True
     platform_first: bool = False
     auto_głównx: bool = True
+    show_seconds: bool = True
     auth: Auth | None = None
 
     def __post_init__(self):

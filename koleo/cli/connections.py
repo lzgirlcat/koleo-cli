@@ -70,7 +70,7 @@ class Connections(BaseCli):
             + f"/{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
-            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
+            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {self.ftime(date)} {date.strftime("%d-%m")}[/link][/bold blue]"
         ]
 
         for i in results:
@@ -84,7 +84,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/p/{i["id"]}]{date_part}{dep.strftime("%H:%M")} - {date_part_2}{arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/p/{i["id"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
@@ -126,7 +126,7 @@ class Connections(BaseCli):
                     )
                     # fs_arr = arr_dep_to_dt(fs["arrival"])
                     fs_dep = koleo_time_to_dt(fs["departure"])
-                    fs_info = f"[bold green]{fs_dep.strftime("%H:%M")} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
+                    fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
 
                     # last stop
 
@@ -139,7 +139,7 @@ class Connections(BaseCli):
                     )
                     ls_arr = koleo_time_to_dt(ls["arrival"])
                     # ls_dep = arr_dep_to_dt(ls["departure"])
-                    ls_info = f"[bold green]{ls_arr.strftime("%H:%M")} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
+                    ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
                     connection_time = int((fs_dep - previous_arrival).total_seconds()) if previous_arrival else ""
                     previous_arrival = ls_arr
                     if connection_time:
@@ -210,7 +210,7 @@ class Connections(BaseCli):
             + f"/{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
-            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
+            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {self.ftime(date)} {date.strftime("%d-%m")}[/link][/bold blue]"
         ]
 
         for j in results:
@@ -227,7 +227,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/connection/{j["uuid"]}]{date_part}{dep.strftime("%H:%M")} - {date_part_2}{arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/connection/{j["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
@@ -269,7 +269,7 @@ class Connections(BaseCli):
                     )
                     # fs_arr = arr_dep_to_dt(fs["arrival"])
                     fs_dep = koleo_time_to_dt(fs["departure"])
-                    fs_info = f"[bold green]{fs_dep.strftime("%H:%M")} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
+                    fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
 
                     # last stop
 
@@ -282,7 +282,7 @@ class Connections(BaseCli):
                     )
                     ls_arr = koleo_time_to_dt(ls["arrival"])
                     # ls_dep = arr_dep_to_dt(ls["departure"])
-                    ls_info = f"[bold green]{ls_arr.strftime("%H:%M")} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
+                    ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
                     connection_time = int((fs_dep - previous_arrival).total_seconds()) if previous_arrival else ""
                     previous_arrival = ls_arr
                     if connection_time:
@@ -350,15 +350,15 @@ class Connections(BaseCli):
             + f"/{"all" if not direct else "direct"}/{"-".join(connection_brands.keys()) if brands else "all"}"
         )
         parts = [
-            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {date.strftime("%H:%M %d-%m")}[/link][/bold blue]"
+            f"[bold blue][link={link}]{start_station["name"]} → {end_station["name"]} at {self.ftime(date)} {date.strftime("%d-%m")}[/link][/bold blue]"
         ]
 
         for i in results:
             arr = koleo_time_to_dt(i["arrival"])
             dep = koleo_time_to_dt(i["departure"])
             travel_time = int((arr - dep).total_seconds())
-            date_part = f"{dep.strftime("%d-%m")} " if dep.date() != date.date() else ""
-            date_part_2 = f"{arr.strftime("%d-%m")} " if arr.date() != dep.date() else ""
+            date_part = f"{self.ftime(dep)} " if dep.date() != date.date() else ""
+            date_part_2 = f"{self.ftime(arr)} " if arr.date() != dep.date() else ""
             if price := price_dict.get(i["uuid"]):
                 price_str = f" [bold red]{format_price(price)}[/bold red]"
             elif only_purchasable:
@@ -366,7 +366,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/connection/{i["uuid"]}]{date_part}{dep.strftime("%H:%M")} - {date_part_2}{arr.strftime("%H:%M")}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/connection/{i["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m{price_str}:[/link]"
             )
             for constriction in i["constrictions"]:
                 parts.append(
@@ -394,12 +394,12 @@ class Connections(BaseCli):
             fs = leg["stops_in_leg"][0]
             fs_station = stations[str(fs["station_id"])]
             fs_dep = koleo_time_to_dt(fs["departure"])
-            fs_info = f"[bold green]{fs_dep.strftime("%H:%M")} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
+            fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
 
             ls = leg["stops_in_leg"][-1]
             ls_station = stations[str(ls["station_id"])]
             ls_arr = koleo_time_to_dt(ls["arrival"])
-            ls_info = f"[bold green]{ls_arr.strftime("%H:%M")} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
+            ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
 
             return f"[red]{brand}[/red] {leg["train_full_name"]} {fs_info} - {ls_info}"
         elif leg["leg_type"] == "station_change_leg":
