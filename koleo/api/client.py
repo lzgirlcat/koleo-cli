@@ -304,20 +304,11 @@ class KoleoAPI(BaseAPIClient):
         return (
             await self.post(
                 f"https://api.koleo.pl/v2/main/oauth/token",
-                json={
-                    "username": username,
-                    "password": password,
-                    "grant_type": "password",
-                    "client_id": client_id
-                }
+                json={"username": username, "password": password, "grant_type": "password", "client_id": client_id},
             )
         ).json()
 
-    async def realtime_train_timetable(
-        self,
-        train_id: int,
-        operating_day: datetime
-    ) -> RealtimeTrainTimetable:
+    async def realtime_train_timetable(self, train_id: int, operating_day: datetime) -> RealtimeTrainTimetable:
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/train_timetable/{train_id}/{operating_day}",

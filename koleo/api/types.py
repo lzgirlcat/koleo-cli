@@ -591,6 +591,7 @@ class CarrierLine(t.TypedDict):
     end_station_name: str
     end_station_slug: str
 
+
 CallType = t.Literal["recorded"]
 
 
@@ -601,7 +602,7 @@ class EstimatedTrainTime(t.TypedDict):
     actual_arrival: str | None
     actual_departure: str | None
     train_id: int
-    operating_day: str # yyyy-mm-dd
+    operating_day: str  # yyyy-mm-dd
     recorded_at: str | None
 
 
@@ -620,7 +621,7 @@ class EstimatedV3ConnectionTimesResponse(t.TypedDict):
 class LoginTokenResponse(t.TypedDict):
     access_token: str
     token_type: t.Literal["Bearer"]
-    expires_in: int # 336h -> 14 dni
+    expires_in: int  # 336h -> 14 dni
     refresh_token: str
     created_at: int
 
@@ -632,8 +633,8 @@ class RealtimeTrainStop(t.TypedDict):
     commercial_brand_id: int
     internal_brand_id: int
     train_nr: int
-    platform: str # roman numeral
-    track: str # arabic numeral
+    platform: str  # roman numeral
+    track: str  # arabic numeral
     request_stop: bool
     for_alighting: bool
     for_boarding: bool
@@ -648,10 +649,10 @@ class RealtimeTrainTimetable(t.TypedDict):
     train_nr: int
     train_name: str
     train_full_name: str
-    operating_day: str # yyyy-mm-dd
+    operating_day: str  # yyyy-mm-dd
     commercial_brand_id: int
     internal_brand_id: int
     constrictions: list[AttributeWithAnnotation]
     train_attributes: list[AttributeWithAnnotation]
     real_time_data_recorded_at: str | None
-    stops: list[]
+    stops: list[RealtimeTrainStop]

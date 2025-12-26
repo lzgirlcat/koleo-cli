@@ -9,11 +9,17 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser, _SubParsersAction
 
 
+def maybe_skip_year(now: datetime, target: datetime):
+    if now.month > target.month:
+        return now.year + 1
+    return now.year
+
+
 def parse_datetime(s: str):
+    now = datetime.now()
     try:
-        now = datetime.now()
         dt = datetime.strptime(s, "%d-%m")
-        return dt.replace(year=now.year, hour=0, minute=0)
+        return dt.replace(year=maybe_skip_year(now, dt), hour=0, minute=0)
     except ValueError:
         pass
     try:
@@ -41,15 +47,18 @@ def parse_datetime(s: str):
     if s[0] == "-":
         return datetime.now().replace(hour=0, minute=0) - timedelta(days=int(s[1:]))
     try:
-        now = datetime.now()
         dt = datetime.strptime(s, "%d-%m %H:%M")
-        return dt.replace(year=now.year)
+        return dt.replace(year=maybe_skip_year(now, dt))
     except ValueError:
         pass
     try:
-        now = datetime.now()
         dt = datetime.strptime(s, "%H:%M %d-%m")
-        return dt.replace(year=now.year)
+        return dt.replace(year=maybe_skip_year(now, dt))
+    except ValueError:
+        pass
+    try:
+        dt = datetime.strptime(s, "%Y-%m-%d %H:%M")
+        return dt.replace(year=maybe_skip_year(now, dt))
     except ValueError:
         pass
     return datetime.combine(datetime.today(), datetime.strptime(s, "%H:%M").time())
