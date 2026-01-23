@@ -117,7 +117,7 @@ class TrainInfo(BaseCli):
 
         travel_time = int((route_end - route_start).total_seconds())
         speed = (last_stop["distance"] - first_stop["distance"]) / 1000 / travel_time * 3600
-        self.print(f"[white]  {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {speed:^4.1f}km/h [/white]")
+        self.print(f"[white]  {travel_time//3600}h{int((travel_time % 3600)/60)}m {speed:^4.1f}km/h [/white]")
 
         vehicle_types: dict[str, str] = {
             stop["station_display_name"]: stop["vehicle_type"]

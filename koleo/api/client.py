@@ -245,7 +245,7 @@ class KoleoAPI(BaseAPIClient):
         data = {
             "start_id": start_station_id,
             "end_id": end_station_id,
-            "departure_after": date.isoformat(),
+            "departure_after": date.replace(tzinfo=None).isoformat(),
             "only_direct": direct,
         }
         if brand_ids:

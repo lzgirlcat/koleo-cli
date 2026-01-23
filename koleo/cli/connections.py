@@ -84,7 +84,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/p/{i["id"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/p/{i["id"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{int((travel_time % 3600)/60)}m {i['distance']}km{price_str}:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
@@ -144,7 +144,7 @@ class Connections(BaseCli):
                     previous_arrival = ls_arr
                     if connection_time:
                         parts.append(
-                            f"  {connection_time//3600}h{(connection_time % 3600)/60:.0f}m at [purple]{fs_station['name']}[/purple]"
+                            f"  {connection_time//3600}h{int((connection_time % 3600)/60)}m at [purple]{fs_station['name']}[/purple]"
                         )
                     parts.append(f"  [red]{brand}[/red] {train["train_full_name"]} {fs_info} - {ls_info}")
         self.print("\n".join(parts))
@@ -227,7 +227,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/connection/{j["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m {i['distance']}km{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/connection/{j["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{int((travel_time % 3600)/60)}m {i['distance']}km{price_str}:[/link]"
             )
             if len(i["trains"]) == 1:
                 train = i["trains"][0]
@@ -287,7 +287,7 @@ class Connections(BaseCli):
                     previous_arrival = ls_arr
                     if connection_time:
                         parts.append(
-                            f"  {connection_time//3600}h{(connection_time % 3600)/60:.0f}m at [purple]{fs_station['name']}[/purple]"
+                            f"  {connection_time//3600}h{int((connection_time % 3600)/60)}m at [purple]{fs_station['name']}[/purple]"
                         )
                     parts.append(f"  [red]{brand}[/red] {train["train_full_name"]} {fs_info} - {ls_info}")
         self.print("\n".join(parts))
@@ -366,7 +366,7 @@ class Connections(BaseCli):
             else:
                 price_str = ""
             parts.append(
-                f"[bold green][link=https://koleo.pl/connection/{i["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{(travel_time % 3600)/60:.0f}m{price_str}:[/link]"
+                f"[bold green][link=https://koleo.pl/connection/{i["uuid"]}]{date_part}{self.ftime(dep)} - {date_part_2}{self.ftime(arr)}[/bold green] {travel_time//3600}h{int((travel_time % 3600)/60)}m{price_str}:[/link]"
             )
             for constriction in i["constrictions"]:
                 parts.append(
@@ -387,7 +387,7 @@ class Connections(BaseCli):
         stations: dict[str, ExtendedStationInfo],
     ) -> str:
         if leg["leg_type"] == "walk_leg":
-            return f"[yellow underline]WALK[/yellow underline] {leg["footpath_duration"]//60}h{(leg["footpath_duration"] % 60):.0f}m from [purple]{stations[str(leg["origin_station_id"])]['name']}[/purple] to [purple]{stations[str(leg["destination_station_id"])]['name']}[/purple]"
+            return f"[yellow underline]WALK[/yellow underline] {leg["footpath_duration"]//60}h{(leg["footpath_duration"] % 60)}m from [purple]{stations[str(leg["origin_station_id"])]['name']}[/purple] to [purple]{stations[str(leg["destination_station_id"])]['name']}[/purple]"
         elif leg["leg_type"] == "train_leg":
             brand = next(iter(i for i in api_brands if i["id"] == leg["commercial_brand_id"]), {}).get("logo_text")
 
@@ -403,7 +403,7 @@ class Connections(BaseCli):
 
             return f"[red]{brand}[/red] {leg["train_full_name"]} {fs_info} - {ls_info}"
         elif leg["leg_type"] == "station_change_leg":
-            return f"{leg["duration"]//60}h{(leg["duration"] % 60):.0f}m at [purple]{stations[str(leg["station_id"])]['name']}[/purple]"
+            return f"{leg["duration"]//60}h{int((leg["duration"] % 60))}m at [purple]{stations[str(leg["station_id"])]['name']}[/purple]"
         else:
             return f"Unknown leg: {leg}"
 
