@@ -357,8 +357,8 @@ class Connections(BaseCli):
             arr = koleo_time_to_dt(i["arrival"])
             dep = koleo_time_to_dt(i["departure"])
             travel_time = int((arr - dep).total_seconds())
-            date_part = f"{self.ftime(dep)} " if dep.date() != date.date() else ""
-            date_part_2 = f"{self.ftime(arr)} " if arr.date() != dep.date() else ""
+            date_part = f"{dep.strftime("%d-%m")} " if dep.date() != date.date() else ""
+            date_part_2 = f"{arr.strftime("%d-%m")} " if arr.date() != dep.date() else ""
             if price := price_dict.get(i["uuid"]):
                 price_str = f" [bold red]{format_price(price)}[/bold red]"
             elif only_purchasable:
