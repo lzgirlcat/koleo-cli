@@ -49,7 +49,7 @@ actions:
     departures (d, dep, odjazdy, o)
                         Allows you to list station departures
     arrivals (a, arr, przyjazdy, p)
-                        Allows you to list station departures
+                        Allows you to list station arrivals
     all (w, wszystkie, all_trains, pociagi)
                         Allows you to list all station trains
     trainroute (r, tr, t, poc, pociąg)
