@@ -62,7 +62,9 @@ class Seats(TrainInfo):
         date: datetime,
         stations: tuple[str, str],
     ):
+        name = name.strip().lower()
         first_station, last_station = [i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))]
+
         brand = brand.lower().strip()
         api_brands = await self.get_brands()
         api_brand = next(
@@ -73,18 +75,23 @@ class Seats(TrainInfo):
         )
         if not api_brand:
             await self.error_and_exit(f"Brand [underline]{brand}[/underline] not found!")
-        while True:
+
+        date = date.replace(hour=0, minute=0, second=0, microsecond=0)
+        prev_date = None
+
+        while date != prev_date:
+            prev_date = date
             connections = await self.client.get_connections(
                 first_station,
                 last_station,
                 brand_ids=[api_brand["id"]],
                 direct=True,
-                date=date.replace(hour=0, minute=0, second=0, microsecond=0),
+                date=date,
             )
             for i in connections:
-                if isinstance(i["departure"], dict) or koleo_time_to_dt(i["departure"]).date() != date.date():
+                if isinstance(i["departure"], dict) or (date:=koleo_time_to_dt(i["departure"])).date() != date.date():
                     break
-                if i["trains"][0]["train_full_name"] == name:
+                if i["trains"][0]["train_full_name"].strip().lower() == name:
                     return i
 
     async def train_passenger_stats_view(
@@ -100,6 +107,8 @@ class Seats(TrainInfo):
         if force:
             if stations:
                 connection = await self.connection_from_stations(brand, name, date, stations)
+                if not connection:
+                    await self.error_and_exit(f"Train [underline]{brand} {name}[/underline] not found at {date.strftime("%Y-%m-%d")} ")
                 train_details = await self.client.get_train(connection["trains"][0]["train_id"])
             else:
                 await self.error_and_exit(

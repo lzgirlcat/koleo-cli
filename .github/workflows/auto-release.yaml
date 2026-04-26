@@ -38,6 +38,7 @@ jobs:
         id: create_release
         run: |
           curl -X POST \
+            -f \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{
