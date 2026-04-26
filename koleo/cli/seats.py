@@ -89,7 +89,7 @@ class Seats(TrainInfo):
                 date=date,
             )
             for i in connections:
-                if isinstance(i["departure"], dict) or (date:=koleo_time_to_dt(i["departure"])).date() != date.date():
+                if isinstance(i["departure"], dict) or (date := koleo_time_to_dt(i["departure"])).date() != date.date():
                     break
                 if i["trains"][0]["train_full_name"].strip().lower() == name:
                     return i
@@ -108,7 +108,9 @@ class Seats(TrainInfo):
             if stations:
                 connection = await self.connection_from_stations(brand, name, date, stations)
                 if not connection:
-                    await self.error_and_exit(f"Train [underline]{brand} {name}[/underline] not found at {date.strftime("%Y-%m-%d")} ")
+                    await self.error_and_exit(
+                        f"Train [underline]{brand} {name}[/underline] not found at {date.strftime("%Y-%m-%d")} "
+                    )
                 train_details = await self.client.get_train(connection["trains"][0]["train_id"])
             else:
                 await self.error_and_exit(
