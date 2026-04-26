@@ -53,7 +53,7 @@ class Seats(TrainInfo):
         )
         if connection is None:
             await self.error_and_exit("Train connection not found:<\nplease try clearing the cache")
-        return connection
+        return connection, train_details
 
     async def connection_from_stations(
         self,
@@ -92,7 +92,9 @@ class Seats(TrainInfo):
                 if isinstance(i["departure"], dict) or (date := koleo_time_to_dt(i["departure"])).date() != date.date():
                     break
                 if i["trains"][0]["train_full_name"].strip().lower() == name:
-                    return i
+                    train_details = await self.client.get_train(i["trains"][0]["train_id"])
+                    return i, train_details
+        return None, None
 
     async def train_passenger_stats_view(
         self,
@@ -106,18 +108,17 @@ class Seats(TrainInfo):
     ):
         if force:
             if stations:
-                connection = await self.connection_from_stations(brand, name, date, stations)
-                if not connection:
+                connection, train_details = await self.connection_from_stations(brand, name, date, stations)
+                if not connection or not train_details:
                     await self.error_and_exit(
                         f"Train [underline]{brand} {name}[/underline] not found at {date.strftime("%Y-%m-%d")} "
                     )
-                train_details = await self.client.get_train(connection["trains"][0]["train_id"])
             else:
                 await self.error_and_exit(
                     f"[underline]force[/underline] can only be used with stations (-s / --show_stations)"
                 )
         else:
-            connection = await self.connection_from_train_calendar(brand, name, date, stations)
+            connection, train_details = await self.connection_from_train_calendar(brand, name, date, stations)
         connection_train = connection["trains"][0]
         if connection_train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
             await self.error_and_exit(f"Brand [underline]{connection_train["brand_id"]}[/underline] is not supported.")
