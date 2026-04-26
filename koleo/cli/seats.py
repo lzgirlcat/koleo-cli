@@ -10,7 +10,6 @@ from .utils import CLASS_COLOR_MAP
 
 
 class Seats(TrainInfo):
-
     async def connection_from_train_calendar(
         self,
         brand: str,
@@ -63,16 +62,17 @@ class Seats(TrainInfo):
         date: datetime,
         stations: tuple[str, str],
     ):
-        first_station, last_station = [
-            i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
-        ]
+        first_station, last_station = [i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))]
         brand = brand.lower().strip()
         api_brands = await self.get_brands()
-        api_brand = next(iter(i for i in api_brands if i["name"].lower().strip() == brand or i["logo_text"].lower().strip() == brand), None)
+        api_brand = next(
+            iter(
+                i for i in api_brands if i["name"].lower().strip() == brand or i["logo_text"].lower().strip() == brand
+            ),
+            None,
+        )
         if not api_brand:
-            await self.error_and_exit(
-                f"Brand [underline]{brand}[/underline] not found!"
-            )
+            await self.error_and_exit(f"Brand [underline]{brand}[/underline] not found!")
         while True:
             connections = await self.client.get_connections(
                 first_station,
@@ -95,14 +95,16 @@ class Seats(TrainInfo):
         stations: tuple[str, str] | None = None,
         type: str | None = None,
         detailed: bool = False,
-        force: bool = False
+        force: bool = False,
     ):
         if force:
             if stations:
                 connection = await self.connection_from_stations(brand, name, date, stations)
                 train_details = await self.client.get_train(connection["trains"][0]["train_id"])
             else:
-                await self.error_and_exit(f"[underline]force[/underline] can only be used with stations (-s / --show_stations)")
+                await self.error_and_exit(
+                    f"[underline]force[/underline] can only be used with stations (-s / --show_stations)"
+                )
         else:
             connection = await self.connection_from_train_calendar(brand, name, date, stations)
         connection_train = connection["trains"][0]
