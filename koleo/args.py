@@ -248,8 +248,14 @@ def main():
         action="store_true",
         default=False,
     )
+    train_passenger_stats.add_argument(
+        "--force",
+        help="",
+        action="store_true",
+        default=False,
+    )
     train_passenger_stats.set_defaults(
-        func=cli.train_passenger_stats_view, pass_=["brand", "name", "date", "stations", "type", "detailed"]
+        func=cli.train_passenger_stats_view, pass_=["brand", "name", "date", "stations", "type", "detailed", "force"]
     )
 
     train_connection_stats = subparsers.add_parser(

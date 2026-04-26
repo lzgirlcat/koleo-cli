@@ -59,6 +59,12 @@ GŁÓWNX_STATIONS = {
 }
 
 
+STATION_NAME_REPLACEMENTS = {
+    "zgierz-kontrewers": "zgierz-kontrew",
+    "zajezierze-kolo-deblina": "zajezierze-k-deblina"
+}
+
+
 def format_price(price: str | Price | V3Price):
     if isinstance(price, dict):
         s: str | None = price.get("price") or price.get("value")

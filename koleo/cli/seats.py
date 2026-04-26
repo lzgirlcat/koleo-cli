@@ -10,14 +10,13 @@ from .utils import CLASS_COLOR_MAP
 
 
 class Seats(TrainInfo):
-    async def train_passenger_stats_view(
+
+    async def connection_from_train_calendar(
         self,
         brand: str,
         name: str,
         date: datetime,
         stations: tuple[str, str] | None = None,
-        type: str | None = None,
-        detailed: bool = False,
     ):
         train_calendars = await self.get_train_calendars(brand, name)
         if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
@@ -55,9 +54,78 @@ class Seats(TrainInfo):
         )
         if connection is None:
             await self.error_and_exit("Train connection not found:<\nplease try clearing the cache")
+        return connection
+
+    async def connection_from_stations(
+        self,
+        brand: str,
+        name: str,
+        date: datetime,
+        stations: tuple[str, str],
+    ):
+        first_station, last_station = [
+            i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
+        ]
+        brand = brand.lower().strip()
+        api_brands = await self.get_brands()
+        api_brand = next(iter(i for i in api_brands if i["name"].lower().strip() == brand or i["logo_text"].lower().strip() == brand), None)
+        if not api_brand:
+            await self.error_and_exit(
+                f"Brand [underline]{brand}[/underline] not found!"
+            )
+        while True:
+            connections = await self.client.get_connections(
+                first_station,
+                last_station,
+                brand_ids=[api_brand["id"]],
+                direct=True,
+                date=date.replace(hour=0, minute=0, second=0, microsecond=0),
+            )
+            for i in connections:
+                if isinstance(i["departure"], dict) or koleo_time_to_dt(i["departure"]).date() != date.date():
+                    break
+                if i["trains"][0]["train_full_name"] == name:
+                    return i
+
+    async def train_passenger_stats_view(
+        self,
+        brand: str,
+        name: str,
+        date: datetime,
+        stations: tuple[str, str] | None = None,
+        type: str | None = None,
+        detailed: bool = False,
+        force: bool = False
+    ):
+        if force:
+            if stations:
+                connection = await self.connection_from_stations(brand, name, date, stations)
+                train_details = await self.client.get_train(connection["trains"][0]["train_id"])
+            else:
+                await self.error_and_exit(f"[underline]force[/underline] can only be used with stations (-s / --show_stations)")
+        else:
+            connection = await self.connection_from_train_calendar(brand, name, date, stations)
         connection_train = connection["trains"][0]
         if connection_train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
             await self.error_and_exit(f"Brand [underline]{connection_train["brand_id"]}[/underline] is not supported.")
+
+        train_stops_slugs = [i["station_slug"] for i in train_details["stops"]]
+        train_stops_by_slug = {i["station_slug"]: i for i in train_details["stops"]}
+        if stations:
+            first_station, last_station = [
+                i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
+            ]
+            if first_station not in train_stops_slugs:
+                await self.error_and_exit(
+                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{first_station}[/underline]"
+                )
+            elif last_station not in train_stops_slugs:
+                await self.error_and_exit(
+                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{last_station}[/underline]"
+                )
+        else:
+            first_station, last_station = train_stops_slugs[0], train_stops_slugs[-1]
+
         await self.show_train_header(
             train_details, train_stops_by_slug[first_station], train_stops_by_slug[last_station]
         )
