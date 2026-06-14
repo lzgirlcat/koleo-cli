@@ -4,11 +4,11 @@ from .utils import COUNTRY_MAP
 
 class Stations(BaseCli):
     async def find_station_view(self, query: str | None, type: str | None, country: str | None):
-        if query:
-            stations = await self.client.find_station(query)
-        else:
-            stations = (await self.get_stations()).values()
+        stations = (await self.get_stations()).values()
         for st in stations:
+            if query:
+                if query.lower() not in st["name"].lower():
+                    continue
             result_info = ""
             if "country" in st:
                 if country:
@@ -19,10 +19,10 @@ class Stations(BaseCli):
                     c_info = COUNTRY_MAP[st["country"]]
                     result_info += c_info[1] if self.storage.use_country_flags_emoji else c_info[0]
             if type:
-                if not st["type"].startswith(type):
+                if not st["transport_mode"] or not st["transport_mode"].startswith(type):
                     continue
             else:
-                if st["type"] == "Quay":
+                if st["type"] == "Quay" or st["transport_mode"] == "bus":
                     result_info += "🚏" if self.storage.use_station_type_emoji else "BUS"
                 elif st["type"] == "TopographicalPlace":
                     result_info += "🏛️" if self.storage.use_station_type_emoji else "GROUP"

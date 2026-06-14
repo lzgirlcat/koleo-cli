@@ -15,7 +15,14 @@
  - find a connection from station a to b, with filtering by operators
  - save a station as your favourite to quickly check it's departures
  - add station aliases to query them more easily
- - check seat allocation statistics
+ - check seat allocation statistics( authentication <u>is</u> required since may 2026 :< )
+ - check delays(after login)
+
+### login
+  - the current implementation allows you to store the credentials as cleartext, or instruct the koleo-cli to execute a command to retrieve them
+  - the builtin login function allows you to store the data using secret-tool on linux, or cleartext on other platforms
+  - you can create your own auth provider using the `command` auth type:
+    - the program has to output a json k: v dump of cookies to be used, including the `_koleo_token` cookie(the v2 bearer auth token)
 
 ### coming soon™️:
  - TUI ticket purchase interface
@@ -34,18 +41,19 @@ additionally you can also use the KoleoAPI wrapper directly in your own projects
 pull requests are welcome!!
 
 ```
-usage: koleo [-h] [-c CONFIG] [--nocolor]
-             {departures,d,dep,odjazdy,o,arrivals,a,arr,przyjazdy,p,all,w,wszystkie,all_trains,pociagi,trainroute,r,tr,t,poc,pociąg,traincalendar,kursowanie,tc,k,traindetail,td,tid,id,idpoc,stations,s,find,f,stacje,ls,q,connections,do,z,szukaj,path,trainstats,ts,tp,miejsca,frekwencja,trainconnectionstats,tcs,aliases} ...
+usage: koleo [-h] [-c CONFIG] [--ignore_cache] [--nocolor]
+             {departures,d,dep,odjazdy,o,arrivals,a,arr,przyjazdy,p,all,w,wszystkie,all_trains,pociagi,trainroute,r,tr,t,poc,pociąg,traincalendar,kursowanie,tc,k,traindetail,td,tid,id,idpoc,stations,s,find,f,stacje,ls,q,connections,z,szukaj,path,destinations,do,to,z3,trainstats,ts,tp,miejsca,frekwencja,trainconnectionstats,tcs,aliases,clear_cache,login} ...
 
 Koleo CLI
 
 options:
   -h, --help            show this help message and exit
   -c, --config CONFIG   Custom config path.
+  --ignore_cache
   --nocolor             Disable color output and formatting
 
 actions:
-  {departures,d,dep,odjazdy,o,arrivals,a,arr,przyjazdy,p,all,w,wszystkie,all_trains,pociagi,trainroute,r,tr,t,poc,pociąg,traincalendar,kursowanie,tc,k,traindetail,td,tid,id,idpoc,stations,s,find,f,stacje,ls,q,connections,do,z,szukaj,path,trainstats,ts,tp,miejsca,frekwencja,trainconnectionstats,tcs,aliases}
+  {departures,d,dep,odjazdy,o,arrivals,a,arr,przyjazdy,p,all,w,wszystkie,all_trains,pociagi,trainroute,r,tr,t,poc,pociąg,traincalendar,kursowanie,tc,k,traindetail,td,tid,id,idpoc,stations,s,find,f,stacje,ls,q,connections,z,szukaj,path,destinations,do,to,z3,trainstats,ts,tp,miejsca,frekwencja,trainconnectionstats,tcs,aliases,clear_cache,login}
     departures (d, dep, odjazdy, o)
                         Allows you to list station departures
     arrivals (a, arr, przyjazdy, p)
@@ -60,11 +68,73 @@ actions:
                         Allows you to show the train's route given it's koleo ID
     stations (s, find, f, stacje, ls, q)
                         Allows you to find stations by their name
-    connections (do, z, szukaj, path)
+    connections (z, szukaj, path)
                         Allows you to search for connections from a to b
+    destination_connections (destinations, do, to)
+                        Allows you to search for connections from favourite_station to x
+    v3_connections (z3)
+                        Allows you to search for connections from a to b using V3 Koleo Search
     trainstats (ts, tp, miejsca, frekwencja)
                         Allows you to check seat allocation info for a train.
     trainconnectionstats (tcs)
                         Allows you to check the seat allocations on the train connection given it's koleo ID
     aliases             Save quick aliases for station names!
+    clear_cache         Allows you to clear koleo-cli cache
+    login               Allows you to login(this is required for trainstats:<)
+```
+
+## Example Config
+```json
+{
+  "cache": {},
+  "favourite_station": "czarna-bialostocka",
+  "disable_cache": false,
+  "use_roman_numerals": false,
+  "aliases": {
+    "bzw": "bialystok-zielone-wzgorza",
+    "b": "bialystok",
+    "s": "sokolka",
+    "su": "suwalki",
+    "bp": "bielsk-podlaski",
+    "ww": "warszawa-wschodnia",
+    "e": "elk",
+    "og": "olsztyn-glowny",
+    "kg": "krakow-glowny",
+    "k": "katowice",
+    "bb": "bialystok-bacieczki",
+    "wg": "warszawa-gdanska",
+    "wz": "warszawa-zachodnia",
+    "wc": "warszawa-centralna",
+    "bbg": "bielsko-biala-glowna",
+    "cb": "czarna-bialostocka",
+    "bdg": "bydgoszcz-glowna",
+    "sg": "szczecin-glowny"
+  },
+  "show_connection_id": false,
+  "use_country_flags_emoji": true,
+  "use_station_type_emoji": true,
+  "platform_first": false,
+  "auto_głównx": true,
+  "show_seconds": false,
+  "auth": {
+    "type": "command",
+    "data": [
+      "secret-tool",
+      "lookup",
+      "service",
+      "koleo-cli",
+      "account",
+      "default"
+    ],
+    "on_update": [
+      "secret-tool",
+      "store",
+      "--label='Koleo-CLI Auth'",
+      "service",
+      "koleo-cli",
+      "account",
+      "default"
+    ]
+  }
+}
 ```

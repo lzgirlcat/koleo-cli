@@ -120,10 +120,17 @@ def main():
         help="Allows you to show the train's route given it's koleo ID",
     )
     train_detail.add_argument(
+        "-d",
+        "--date",
+        help="the date",
+        type=lambda s: parse_datetime(s),
+        default=datetime.now(),
+    )
+    train_detail.add_argument(
         "-s", "--show_stations", help="limit the result to A->B", action="extend", nargs=2, type=str, default=None
     )
     train_detail.add_argument("train_id", help="The koleo ID", type=int)
-    train_detail.set_defaults(func=cli.train_detail_view, pass_=["train_id", "show_stations"])
+    train_detail.set_defaults(func=cli.train_detail_view, pass_=["train_id", "show_stations", "date"])
 
     stations = subparsers.add_parser(
         "stations", aliases=["s", "find", "f", "stacje", "ls", "q"], help="Allows you to find stations by their name"
@@ -300,10 +307,32 @@ def main():
     )
     clear_cache.set_defaults(func="clear_cache")
 
+    login = subparsers.add_parser(
+        "login",
+        help="Allows you to login(this is required for trainstats:<)",
+    )
+    login.add_argument(
+        "--dump",
+        help="dump the response without saving anything",
+        action="store_true",
+        default=False,
+    )
+    login.add_argument("-u", "--username", help="the username/email", type=str, required=False)
+    login.add_argument("-p", "--password", help="the password", type=str, required=False)
+    login.add_argument(
+        "-c",
+        "--client_id",
+        help="the client_id to use. Either web/android or custom value",
+        type=str,
+        required=False,
+        default="web",
+    )
+    login.set_defaults(func=cli.login, pass_=["dump", "username", "password", "client_id"])
+
     args = parser.parse_args()
 
     storage = Storage.load(path=args.config, ignore_cache=args.ignore_cache)
-    client = KoleoAPI()
+    client = KoleoAPI(storage.auth)
 
     async def run_view(func, *args, **kwargs):
         res = func(*args, **kwargs)

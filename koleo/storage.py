@@ -4,12 +4,9 @@ from os import makedirs
 from os import path as ospath
 from sys import platform
 from time import time
+from subprocess import run
 
 from orjson import dumps, loads, OPT_NON_STR_KEYS
-
-
-if t.TYPE_CHECKING:
-    from yt_dlp.cookies import YoutubeDLCookieJar
 
 
 def get_adequate_config_path() -> str:
@@ -31,38 +28,42 @@ T = t.TypeVar("T")
 @dataclass
 class Auth:
     def __post_init__(self):
+        self._storage: "Storage"
         self._cache: dict | None = None
 
-    type: t.Literal["text", "command", "yt-dlp-browser"]
-    data: str
+    type: t.Literal["cleartext", "command"]
+    data: dict | list
+    on_update: list | None = None
 
-    def get_auth(self) -> dict[str, str]:
+    @property
+    def value(self) -> dict[str, str]:
         if self._cache:
             return self._cache
-        if self.type == "yt-dlp-browser":
-            try:
-                from yt_dlp.cookies import extract_cookies_from_browser
-            except ImportError as e:
-                raise ImportError(
-                    "This feature requires the 'yt-dlp' package. " "Please install it with 'pip install yt-dlp'."
-                ) from e
-            browser, _, profile = self.data.partition(",")
-            cookies: "YoutubeDLCookieJar" = extract_cookies_from_browser(browser, profile or None)
-            self._cache = {
-                cookie.name: cookie.value
-                for cookie in cookies
-                if (cookie.domain == "koleo.pl" or cookie.domain.endswith(".koleo.pl")) and cookie.value
-            }
         elif self.type == "command":
-            from subprocess import run
-
+            if not isinstance(self.data, list):
+                raise ValueError(f"auth.type==command requires data to be an args list")
             process = run(self.data, capture_output=True)
+            process.check_returncode()
             self._cache = loads(process.stdout)
-        elif self.type == "str":
-            self._cache = t.cast(dict[str, str], loads(self.data))
+        elif self.type == "cleartext":
+            if not isinstance(self.data, dict):
+                raise ValueError(f"auth.type==cleartext requires data to be a dict of values")
+            self._cache = self.data
         else:
             raise ValueError(f"invalid auth.type: {self.type}")
         return self._cache  # type: ignore
+
+    def update(self, data):
+        self._cache = data
+        if self.type == "command" and self.on_update:
+            if not isinstance(self.data, list):
+                raise ValueError(f"on_update needs to be an args list")
+            process = run(self.on_update, input=dumps(data))
+            process.check_returncode()
+        elif self.type == "cleartext":
+            self.data = data
+            self._storage._dirty = True
+            self._storage.save()
 
 
 @dataclass
@@ -100,9 +101,13 @@ class Storage:
         storage = cls(**data)
         storage._path = expanded
         storage._ignore_cache = ignore_cache
+        if data.get("auth"):
+            auth = Auth(**data["auth"])
+            auth._storage = storage
+            storage.auth = auth
         return storage
 
-    def get_cache(self, id: str) -> t.Any | None:
+    def get_cache(self, id: str, *, convert_keys: t.Any | None = None) -> t.Any | None:
         if self.disable_cache or self._ignore_cache:
             return None
         cache_result = self.cache.get(id)
@@ -110,6 +115,9 @@ class Storage:
             return None
         expiry, item = cache_result
         if expiry > time():
+            if convert_keys:
+                item = {convert_keys(k): v for k, v in item.items()}
+                self.cache[id] = (expiry, item)
             return item
         else:
             self.cache.pop(id)

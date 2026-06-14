@@ -384,26 +384,26 @@ class Connections(BaseCli):
         self,
         leg: V3ConnectionLeg,
         api_brands: list[ApiBrand],
-        stations: dict[str, ExtendedStationInfo],
+        stations: dict[int, ExtendedStationInfo],
     ) -> str:
         if leg["leg_type"] == "walk_leg":
-            return f"[yellow underline]WALK[/yellow underline] {leg["footpath_duration"]//60}h{(leg["footpath_duration"] % 60)}m from [purple]{stations[str(leg["origin_station_id"])]['name']}[/purple] to [purple]{stations[str(leg["destination_station_id"])]['name']}[/purple]"
+            return f"[yellow underline]WALK[/yellow underline] {leg["footpath_duration"]//60}h{(leg["footpath_duration"] % 60)}m from [purple]{stations[leg["origin_station_id"]]['name']}[/purple] to [purple]{stations[leg["destination_station_id"]]['name']}[/purple]"
         elif leg["leg_type"] == "train_leg":
             brand = next(iter(i for i in api_brands if i["id"] == leg["commercial_brand_id"]), {}).get("logo_text")
 
             fs = leg["stops_in_leg"][0]
-            fs_station = stations[str(fs["station_id"])]
+            fs_station = stations[fs["station_id"]]
             fs_dep = koleo_time_to_dt(fs["departure"])
             fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
 
             ls = leg["stops_in_leg"][-1]
-            ls_station = stations[str(ls["station_id"])]
+            ls_station = stations[ls["station_id"]]
             ls_arr = koleo_time_to_dt(ls["arrival"])
             ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
 
             return f"[red]{brand}[/red] {leg["train_full_name"]} {fs_info} - {ls_info}"
         elif leg["leg_type"] == "station_change_leg":
-            return f"{leg["duration"]//60}h{int((leg["duration"] % 60))}m at [purple]{stations[str(leg["station_id"])]['name']}[/purple]"
+            return f"{leg["duration"]//60}h{int((leg["duration"] % 60))}m at [purple]{stations[leg["station_id"]]['name']}[/purple]"
         else:
             return f"Unknown leg: {leg}"
 

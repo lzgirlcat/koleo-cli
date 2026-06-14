@@ -190,9 +190,10 @@ class TrainStop(t.TypedDict):
     vehicle_type: str | None  # ED161
 
 
-class TrainDetailResponse(t.TypedDict):
-    train: TrainDetail
-    stops: list[TrainStop]
+# 410 GONE :<
+# class TrainDetailResponse(t.TypedDict):
+#     train: TrainDetail
+#     stops: list[TrainStop]
 
 
 class ConnectionTrainStop(t.TypedDict):
@@ -621,7 +622,7 @@ class EstimatedV3ConnectionTimesResponse(t.TypedDict):
 class LoginTokenResponse(t.TypedDict):
     access_token: str
     token_type: t.Literal["Bearer"]
-    expires_in: int  # 336h -> 14 dni
+    expires_in: int  # 1209600 -> 336h -> 14 dni
     refresh_token: str
     created_at: int
 
@@ -644,7 +645,7 @@ class RealtimeTrainStop(t.TypedDict):
     actual_departure: str | None
 
 
-class RealtimeTrainTimetable(t.TypedDict):
+class TrainTimetable(t.TypedDict):
     train_id: int
     train_nr: int
     train_name: str

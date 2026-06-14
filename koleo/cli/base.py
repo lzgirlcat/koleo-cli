@@ -2,10 +2,10 @@ import re
 from datetime import datetime
 
 from koleo.api import KoleoAPI
-from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, TrainStop, TrainAttribute
+from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, RealtimeTrainStop, TrainAttribute, TrainTimetable
 from koleo.storage import Storage
 from koleo.utils import convert_platform_number, koleo_time_to_dt, name_to_slug
-from .utils import GŁÓWNX_STATIONS
+from .utils import GŁÓWNX_STATIONS, is_index, STATION_NAME_REPLACEMENTS
 
 
 class BaseCli:
@@ -79,14 +79,27 @@ class BaseCli:
                 f"{tid}[bold {color}]{self.ftime(dt)}[/bold {color}] [red]{brand}[/red] {train["train_full_name"]}[purple] {train["stations"][0]["name"]} {self.format_position(train["platform"], train["track"])}[/purple]"
             )
 
-    def train_route_table(self, stops: list[TrainStop]):
-        last_real_distance = stops[0]["distance"]
-        for stop in stops:
+    async def train_route_table(self, stops: list[RealtimeTrainStop]):
+        stations = await self.get_stations()
+        for idx, stop in enumerate(stops):
             arr = koleo_time_to_dt(stop["arrival"])
+            arr_diff = (
+                f"[white underline] +{int((koleo_time_to_dt(stop["actual_arrival"]) - arr).total_seconds() / 60)}m[/white underline]"
+                if stop["actual_arrival"]
+                else ""
+            )
             dep = koleo_time_to_dt(stop["departure"])
-            distance = stop["distance"] - last_real_distance
+            dep_diff = (
+                f"[white underline] +{int((koleo_time_to_dt(stop["actual_departure"]) - dep).total_seconds() / 60)}m[/white underline]"
+                if stop["actual_departure"]
+                else arr_diff
+                if idx == len(stops) - 1
+                else ""
+            )
+            arr_diff = dep_diff if idx == 0 else arr_diff
+            name = stations[stop["station_id"]]["name"]
             self.print(
-                f"[white underline]{distance / 1000:^5.1f}km[/white underline] [bold green]{self.ftime(arr)}[/bold green] - [bold red]{self.ftime(dep)}[/bold red] [purple]{stop["station_display_name"]} {self.format_position(stop["platform"])} [/purple]"
+                f"[bold green]{self.ftime(arr)}{arr_diff}[/bold green] - [bold red]{self.ftime(dep)}{dep_diff}[/bold red] [purple]{name} {self.format_position(stop["platform"])} [/purple]"
             )
 
     def format_position(self, platform: str, track: str | None = None):
@@ -99,22 +112,24 @@ class BaseCli:
         return res
 
     async def get_station(self, station: str) -> ExtendedStationInfo:
+        stations = await self.get_stations()
+        stations_by_slugs = await self.get_stations_by_slugs()
         if station in self.storage.aliases:
             slug = self.storage.aliases[station]
         elif station.isnumeric():
-            try:
-                return await self.get_station_by_id(int(station))
-            except self.client.errors.KoleoNotFound:
+            if res := stations.get(int(station)):
+                return res
+            else:
                 await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
         else:
             slug = name_to_slug(station)
             if self.storage.auto_głównx and slug in GŁÓWNX_STATIONS:
                 slug = GŁÓWNX_STATIONS[slug]
+            if slug in STATION_NAME_REPLACEMENTS:
+                slug = STATION_NAME_REPLACEMENTS[slug]
         try:
-            return self.storage.get_cache(f"st-{slug}") or self.storage.set_cache(
-                f"st-{slug}", await self.client.get_station_by_slug(slug)
-            )
-        except self.client.errors.KoleoNotFound:
+            return stations[stations_by_slugs[slug]]
+        except KeyError:
             await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
 
     async def get_brands(self):
@@ -144,8 +159,51 @@ class BaseCli:
             self.storage.set_cache("train_attributes", train_attributes)
         return train_attributes
 
-    async def get_stations(self) -> dict[str, ExtendedStationInfo]:
-        if not (stations := self.storage.get_cache("stations")):
-            stations = {str(i["id"]): i for i in await self.client.get_stations()}
+    async def get_stations(self) -> dict[int, ExtendedStationInfo]:
+        if not (stations := self.storage.get_cache("stations", convert_keys=int)):
+            stations = {i["id"]: i for i in await self.client.get_stations()}
             self.storage.set_cache("stations", stations)
+
+            # its more efficient to do it this way...
+            stations_by_slugs = {i["name_slug"]: i["id"] for i in stations.values()}
+            self.storage.set_cache("stations_by_slugs", stations_by_slugs)
+
         return stations
+
+    async def get_stations_by_slugs(self) -> dict[str, int]:
+        if not (stations := self.storage.get_cache("stations_by_slugs")):
+            await self.get_stations()
+            stations = self.storage.get_cache("stations_by_slugs")
+
+        return stations  # type: ignore
+
+    async def select_train_stops(self, train: TrainTimetable, a: str, b: str) -> tuple[int, int]:
+        stop_ids = [i["station_id"] for i in train["stops"]]
+        stops_len = len(stop_ids)
+        if is_index(a) and (stops_len > (a_idx := int(a))):
+            a_station = stop_ids[a_idx]
+            a_idx = stop_ids.index(a_station)
+        else:
+            station = await self.get_station(a)
+            if station["id"] not in stop_ids:
+                await self.error_and_exit(
+                    f"Train [underline]{train["train_full_name"]}[/underline] doesn't stop at [underline]{station["name"]}[/underline]"
+                )
+            else:
+                a_station = station["id"]
+        a_idx = stop_ids.index(a_station)
+        if is_index(b) and (stops_len > (b_idx := int(b))):
+            b_station = stop_ids[b_idx]
+            b_idx = stop_ids.index(b_station)
+            if b_idx == a_idx:
+                await self.error_and_exit("Station B has to be after station A (-s / --show_stations)")
+        else:
+            station = await self.get_station(b)
+            if station["id"] not in stop_ids:
+                await self.error_and_exit(
+                    f"Train [underline]{train["train_full_name"]}[/underline] doesn't stop at [underline]{station["name"]}[/underline]"
+                )
+            else:
+                b_station = station["id"]
+        b_idx = stop_ids.index(b_station, a_idx)
+        return a_idx, b_idx

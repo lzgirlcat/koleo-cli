@@ -68,3 +68,7 @@ def format_price(price: str | Price | V3Price):
         if not s:
             return ""
     return f"{float(s):.2f} zł"
+
+
+def is_index(s: str):
+    return s.isnumeric() or (s[0] == "-" and s[1:].isnumeric())

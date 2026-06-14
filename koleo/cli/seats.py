@@ -1,8 +1,8 @@
 import typing as t
 from asyncio import gather
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from koleo.api import SeatState, SeatsAvailabilityResponse
+from koleo.api import SeatState, SeatsAvailabilityResponse, V3ConnectionResult, TrainTimetable
 from koleo.utils import BRAND_SEAT_TYPE_MAPPING, koleo_time_to_dt, find_empty_compartments, find_empty_doubles
 
 from .train_info import TrainInfo
@@ -16,44 +16,32 @@ class Seats(TrainInfo):
         name: str,
         date: datetime,
         stations: tuple[str, str] | None = None,
-    ):
+    ) -> tuple[V3ConnectionResult, TrainTimetable]:
         train_calendars = await self.get_train_calendars(brand, name)
         if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
             await self.error_and_exit(
                 f"This train doesn't run on the selected date: [underline]{date.strftime("%Y-%m-%d")}[/underline]"
             )
-        train_details = await self.client.get_train(train_id)
-        if train_details["train"]["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
+        train_timetable = await self.client.get_train_timetable(train_id, date)
+        if train_timetable["internal_brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
             await self.error_and_exit(f"Brand [underline]{brand}[/underline] is not supported.")
-        train_stops_slugs = [i["station_slug"] for i in train_details["stops"]]
-        train_stops_by_slug = {i["station_slug"]: i for i in train_details["stops"]}
         if stations:
-            first_station, last_station = [
-                i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
-            ]
-            if first_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{first_station}[/underline]"
-                )
-            elif last_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{last_station}[/underline]"
-                )
+            first_station_index, last_station_index = await self.select_train_stops(train_timetable, *stations)
         else:
-            first_station, last_station = train_stops_slugs[0], train_stops_slugs[-1]
-        connections = await self.client.get_connections(
-            first_station,
-            last_station,
-            brand_ids=[train_details["train"]["brand_id"]],
+            first_station_index, last_station_index = 0, -1
+        connections = await self.client.v3_connection_search(
+            train_timetable["stops"][first_station_index]["station_id"],
+            train_timetable["stops"][last_station_index]["station_id"],
+            brand_ids=[train_timetable["commercial_brand_id"]],
             direct=True,
-            date=koleo_time_to_dt(train_stops_by_slug[first_station]["departure"], base_date=date),
+            date=koleo_time_to_dt(train_timetable["stops"][first_station_index]["departure"], base_date=date),
         )
         connection = next(
-            iter(i for i in connections if i["trains"][0]["train_id"] == train_details["train"]["id"]), None
+            iter(i for i in connections if i["legs"][0].get("train_id") == train_timetable["train_id"]), None
         )
         if connection is None:
             await self.error_and_exit("Train connection not found:<\nplease try clearing the cache")
-        return connection, train_details
+        return connection, train_timetable
 
     async def connection_from_stations(
         self,
@@ -61,9 +49,9 @@ class Seats(TrainInfo):
         name: str,
         date: datetime,
         stations: tuple[str, str],
-    ):
+    ) -> tuple[V3ConnectionResult, TrainTimetable] | tuple[None, None]:
         name = name.strip().lower()
-        first_station, last_station = [i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))]
+        first_station, last_station = [i["id"] for i in await gather(*(self.get_station(i) for i in stations))]
 
         brand = brand.lower().strip()
         api_brands = await self.get_brands()
@@ -81,7 +69,7 @@ class Seats(TrainInfo):
 
         while date != prev_date:
             prev_date = date
-            connections = await self.client.get_connections(
+            connections = await self.client.v3_connection_search(
                 first_station,
                 last_station,
                 brand_ids=[api_brand["id"]],
@@ -91,9 +79,9 @@ class Seats(TrainInfo):
             for i in connections:
                 if isinstance(i["departure"], dict) or (date := koleo_time_to_dt(i["departure"])).date() != date.date():
                     break
-                if i["trains"][0]["train_full_name"].strip().lower() == name:
-                    train_details = await self.client.get_train(i["trains"][0]["train_id"])
-                    return i, train_details
+                if i["legs"][0].get("train_full_name", "").strip().lower() == name:
+                    train_timetable = await self.client.get_train_timetable(i["legs"][0]["train_id"], date)
+                    return i, train_timetable
         return None, None
 
     async def train_passenger_stats_view(
@@ -108,8 +96,8 @@ class Seats(TrainInfo):
     ):
         if force:
             if stations:
-                connection, train_details = await self.connection_from_stations(brand, name, date, stations)
-                if not connection or not train_details:
+                connection, train_timetable = await self.connection_from_stations(brand, name, date, stations)
+                if not connection or not train_timetable:
                     await self.error_and_exit(
                         f"Train [underline]{brand} {name}[/underline] not found at {date.strftime("%Y-%m-%d")} "
                     )
@@ -118,102 +106,45 @@ class Seats(TrainInfo):
                     f"[underline]force[/underline] can only be used with stations (-s / --show_stations)"
                 )
         else:
-            connection, train_details = await self.connection_from_train_calendar(brand, name, date, stations)
-        connection_train = connection["trains"][0]
-        if connection_train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
-            await self.error_and_exit(f"Brand [underline]{connection_train["brand_id"]}[/underline] is not supported.")
+            connection, train_timetable = await self.connection_from_train_calendar(brand, name, date, stations)
+        if train_timetable["commercial_brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
+            await self.error_and_exit(
+                f"Brand [underline]{train_timetable["commercial_brand_id"]}[/underline] is not supported."
+            )
 
-        train_stops_slugs = [i["station_slug"] for i in train_details["stops"]]
-        train_stops_by_slug = {i["station_slug"]: i for i in train_details["stops"]}
         if stations:
-            first_station, last_station = [
-                i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
-            ]
-            if first_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{first_station}[/underline]"
-                )
-            elif last_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{last_station}[/underline]"
-                )
+            first_station_index, last_station_index = await self.select_train_stops(train_timetable, *stations)
         else:
-            first_station, last_station = train_stops_slugs[0], train_stops_slugs[-1]
+            first_station_index, last_station_index = 0, -1
+
+        legacy_connection_id = await self.client.v3_get_connection_id(connection["uuid"])
 
         await self.show_train_header(
-            train_details, train_stops_by_slug[first_station], train_stops_by_slug[last_station]
+            train_timetable, train_timetable["stops"][first_station_index], train_timetable["stops"][last_station_index]
         )
         await self.train_seat_info(
-            connection["id"], type, connection_train["brand_id"], connection_train["train_nr"], detailed=detailed
+            legacy_connection_id,
+            type,
+            train_timetable["commercial_brand_id"],
+            train_timetable["train_nr"],
+            detailed=detailed,
         )
 
     async def train_connection_stats_view(self, connection_id: int, type: str | None, detailed: bool = False):
         connection = await self.client.get_connection(connection_id)
-        train = connection["trains"][0]
-        if train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
-            await self.error_and_exit(f'Brand [underline]{train["brand_id"]}[/underline] is not supported.')
-        train_details = await self.client.get_train(train["train_id"])
-        first_stop = next(iter(i for i in train_details["stops"] if i["station_id"] == connection["start_station_id"]))
-        last_stop = next(iter(i for i in train_details["stops"] if i["station_id"] == connection["end_station_id"]))
-        await self.show_train_header(train_details, first_stop, last_stop)
-        await self.train_seat_info(connection_id, type, train["brand_id"], train["train_nr"], detailed=detailed)
-
-    async def seatfinder_view(
-        self,
-        brand: str,
-        name: str,
-        date: datetime,
-        stations: tuple[str, str] | None = None,
-        type: str | None = None,
-        mode: t.Literal["fast", "optimized"] = "optimized",
-    ):
-        train_calendars = await self.get_train_calendars(brand, name)
-        if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
-            await self.error_and_exit(
-                f"This train doesn't run on the selected date: [underline]{date.strftime("%Y-%m-%d")}[/underline]"
-            )
-        train_details = await self.client.get_train(train_id)
-        if train_details["train"]["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
-            await self.error_and_exit(f"Brand [underline]{brand}[/underline] is not supported.")
-        train_stops_slugs = [i["station_slug"] for i in train_details["stops"]]
-        train_stops_by_slug = {i["station_slug"]: i for i in train_details["stops"]}
-        if stations:
-            first_station, last_station = [
-                i["name_slug"] for i in await gather(*(self.get_station(i) for i in stations))
-            ]
-            if first_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{first_station}[/underline]"
-                )
-            elif last_station not in train_stops_slugs:
-                await self.error_and_exit(
-                    f"Train [underline]{name}[/underline] doesn't stop at [underline]{last_station}[/underline]"
-                )
-            required_stops_num = train_stops_slugs.index(last_station) - train_stops_slugs.index(first_station) + 1
-        else:
-            first_station, last_station = train_stops_slugs[0], train_stops_slugs[-1]
-            required_stops_num = len(train_stops_by_slug)
-
-        connections = await self.client.get_connections(
-            first_station,
-            last_station,
-            brand_ids=[train_details["train"]["brand_id"]],
-            direct=True,
-            date=koleo_time_to_dt(train_stops_by_slug[first_station]["departure"], base_date=date),
+        train_details = connection["trains"][0]
+        if train_details["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
+            await self.error_and_exit(f'Brand [underline]{train_details["brand_id"]}[/underline] is not supported.')
+        train_timetable = await self.client.get_train_timetable(
+            train_details["train_id"], koleo_time_to_dt(connection["departure"])
         )
-        connection = next(
-            iter(i for i in connections if i["trains"][0]["train_id"] == train_details["train"]["id"]), None
+        first_stop = next(
+            iter(i for i in train_timetable["stops"] if i["station_id"] == connection["start_station_id"])
         )
-        if connection is None:
-            await self.error_and_exit("Train connection not found:<\nplease try clearing the cache")
-        connection_train = connection["trains"][0]
-        if connection_train["brand_id"] not in BRAND_SEAT_TYPE_MAPPING:
-            await self.error_and_exit(f"Brand [underline]{connection_train["brand_id"]}[/underline] is not supported.")
-        await self.show_train_header(
-            train_details, train_stops_by_slug[first_station], train_stops_by_slug[last_station]
-        )
+        last_stop = next(iter(i for i in train_timetable["stops"] if i["station_id"] == connection["end_station_id"]))
+        await self.show_train_header(train_timetable, first_stop, last_stop)
         await self.train_seat_info(
-            connection["id"], type, connection_train["brand_id"], connection_train["train_nr"], detailed=detailed
+            connection_id, type, train_details["brand_id"], train_details["train_nr"], detailed=detailed
         )
 
     async def train_seat_info(

@@ -8,11 +8,17 @@ from koleo.api.types import *
 from .base import BaseAPIClient
 from .errors import errors
 
+if t.TYPE_CHECKING:
+    from koleo.storage import Auth
+
+WEB_CLIENT_ID = "83a8978d16b584621b9f9b2f7662a441f51ac39133d4441f34f08d0c79ad5042"
+ANDROID_CLIENT_ID = "626bf916f7a8782e6c1ba0410b784d142867737a9ccd87def8e705b3a039bfe3"
+
 
 class KoleoAPI(BaseAPIClient):
     errors = errors
 
-    def __init__(self, auth: dict[str, str] | None = None) -> None:
+    def __init__(self, auth: "Auth | None") -> None:
         self.base_url = "https://api.koleo.pl"
         self.version = 2
         self.base_headers = {
@@ -20,13 +26,29 @@ class KoleoAPI(BaseAPIClient):
             "x-koleo-client": "Nuxt-1",
             "User-Agent": "Koleo-CLI(https://pypi.org/project/koleo-cli)",
         }
-        self._auth: dict[str, str] | None = auth
+        self._auth: "Auth | None" = auth
         self._auth_valid: bool | None = None
 
-    async def get(self, path: str, use_auth: bool = False, *args, **kwargs):
+    async def _prepare_headers(self, auth: None | str, kwargs: dict):
         headers = {**self.base_headers, **kwargs.pop("headers", {})}
-        if self._auth and use_auth:
-            headers["cookie"] = "; ".join([f"{k}={v}" for k, v in self._auth.items()])
+        if auth:
+            if not auth.startswith("optional"):
+                await self._require_auth()
+            if auth.startswith("web"):
+                headers["cookie"] = "; ".join([f"{k}={v}" for k, v in self._auth.value.items()])
+            if self._auth and auth.endswith("koleo_token"):
+                koleo_token = await self.get_koleo_token()
+                headers["Authorization"] = f"Bearer {koleo_token}"
+        return headers
+
+    async def get(
+        self,
+        path: str,
+        auth: None | t.Literal["any", "web", "koleo_token", "web+koleo_token", "optional_koleo_token"] = None,
+        *args,
+        **kwargs,
+    ):
+        headers = await self._prepare_headers(auth, kwargs)
         r = await self.request(
             "GET", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
@@ -34,10 +56,14 @@ class KoleoAPI(BaseAPIClient):
             raise self.errors.KoleoNotFound(r.response)
         return r
 
-    async def post(self, path, use_auth: bool = False, *args, **kwargs):
-        headers = {**self.base_headers, **kwargs.pop("headers", {})}
-        if self._auth and use_auth:
-            headers["cookie"] = ("; ".join([f"{k}={v}" for k, v in self._auth.items()]),)
+    async def post(
+        self,
+        path,
+        auth: None | t.Literal["any", "web", "koleo_token", "web+koleo_token", "optional_koleo_token"] = None,
+        *args,
+        **kwargs,
+    ):
+        headers = await self._prepare_headers(auth, kwargs)
         r = await self.request(
             "POST", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
@@ -48,7 +74,7 @@ class KoleoAPI(BaseAPIClient):
     async def put(self, path, use_auth: bool = False, *args, **kwargs):
         headers = {**self.base_headers, **kwargs.pop("headers", {})}
         if self._auth and use_auth:
-            headers["cookie"] = ("; ".join([f"{k}={v}" for k, v in self._auth.items()]),)
+            headers["cookie"] = ("; ".join([f"{k}={v}" for k, v in self._auth.value.items()]),)
         r = await self.request("PUT", self.base_url + path, headers=headers, *args, **kwargs)
         if len(r) == 0:
             raise self.errors.KoleoNotFound(r.response)
@@ -60,17 +86,19 @@ class KoleoAPI(BaseAPIClient):
     async def _require_auth(self) -> t.Literal[True]:
         if self._auth is None:
             raise errors.AuthRequired()
-        if self._auth_valid is None:
-            await self.get_current_session()
-            self._auth_valid = True
         return True
+
+    async def get_koleo_token(self) -> str:
+        await self._require_auth()
+        if self._auth and "_koleo_token" not in self._auth.value:
+            _, cookies = await self.get_current_session()
+            koleo_token = cookies["_koleo_token"]
+            data = {**self._auth.value, "_koleo_token": koleo_token}
+            self._auth.update(data)
+        return self._auth.value["_koleo_token"]
 
     async def get_stations(self) -> list[ExtendedStationInfo]:
         return (await self.get("/v2/main/stations")).json()
-
-    async def find_station(self, query: str, language: str = "pl") -> list[SearchStationInfo]:
-        # https://koleo.pl/ls?q=tere&language=pl
-        return (await self.get("/ls", params={"q": query, "language": language})).json()["stations"]
 
     async def get_station_by_id(self, id: int) -> ExtendedStationInfo:
         # https://koleo.pl/api/v2/main/stations/by_id/24000
@@ -120,9 +148,10 @@ class KoleoAPI(BaseAPIClient):
             params["name"] = name.upper()  # WHY!!!!!!!!!
         return (await self.get("https://koleo.pl/pl/train_calendars", params=params)).json()
 
-    async def get_train(self, id: int) -> TrainDetailResponse:
-        # https://koleo.pl/pl/trains/142821312
-        return (await self.get(f"https://koleo.pl/pl/trains/{id}")).json()
+    # 410 GONE :<
+    # async def get_train(self, id: int) -> TrainDetailResponse:
+    #     # https://koleo.pl/pl/trains/142821312
+    #     return (await self.get(f"https://koleo.pl/pl/trains/{id}")).json()
 
     async def get_connections(
         self,
@@ -176,15 +205,10 @@ class KoleoAPI(BaseAPIClient):
 
     async def get_nested_train_place_types(self, connection_id: int) -> SeatsAvailabilityResponse:
         # https://koleo.pl/api/v2/main/seats_availability/connection_id/train_nr/place_type
-        await self._require_auth()
-        if self._auth and "_koleo_token" not in self._auth:
-            res = await self.post(f"/prices/{connection_id}/passengers")
-            self._auth["_koleo_token"] = koleo_token = res.response.cookies["_koleo_token"].value
         return (
             await self.get(
                 f"/v2/main/nested_train_place_types/{connection_id}",
-                headers={"Authorization": f"Bearer {koleo_token}"},
-                use_auth=True,
+                auth="koleo_token",
             )
         ).json()
 
@@ -193,9 +217,7 @@ class KoleoAPI(BaseAPIClient):
     ) -> SeatsAvailabilityResponse:
         # https://koleo.pl/api/v2/main/seats_availability/connection_id/train_nr/place_type
         return (
-            await self.get(
-                f"/v2/main/seats_availability/{connection_id}/{train_nr}/{place_type}",
-            )
+            await self.get(f"/v2/main/seats_availability/{connection_id}/{train_nr}/{place_type}", auth="koleo_token")
         ).json()
 
     async def get_train_composition(
@@ -228,11 +250,12 @@ class KoleoAPI(BaseAPIClient):
         )
         return res.json().get("price")
 
-    async def get_current_session(self) -> CurrentSession:
-        return (await self.get("/sessions/current", use_auth=True)).json()
+    async def get_current_session(self) -> tuple[CurrentSession, dict]:
+        res = await self.get("/sessions/current", auth="web")
+        return res.json(), {k: i.value for k, i in res.response.cookies.items()}
 
     async def get_current_user(self) -> CurrentUser:
-        return (await self.get("/users/current", use_auth=True)).json()
+        return (await self.get("/users/current", auth="web")).json()
 
     async def v3_connection_search(
         self,
@@ -284,7 +307,7 @@ class KoleoAPI(BaseAPIClient):
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/estimated-timetable/station/{station_id}/{date.strftime("%Y-%m-%d")}/{type}",
-                use_auth=True,
+                auth="koleo_token",
                 params={"train_ids[]": train_ids},
             )
         ).json()
@@ -296,11 +319,14 @@ class KoleoAPI(BaseAPIClient):
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/estimated-timetable/connections/uuid/{connection_id}",
-                use_auth=True,
+                auth="koleo_token",
             )
         ).json()
 
-    async def login_password(self, username: str, password: str, client_id: str) -> LoginTokenResponse:
+    async def login_password(
+        self, username: str, password: str, client_id: t.Literal["web", "android"] | str = "web"
+    ) -> LoginTokenResponse:
+        client_id = WEB_CLIENT_ID if client_id == "web" else ANDROID_CLIENT_ID if client_id == "android" else client_id
         return (
             await self.post(
                 f"https://api.koleo.pl/v2/main/oauth/token",
@@ -308,10 +334,20 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
-    async def realtime_train_timetable(self, train_id: int, operating_day: datetime) -> RealtimeTrainTimetable:
+    async def refresh_token(self) -> LoginTokenResponse: ...
+
+    async def get_user(self) -> User:
         return (
             await self.get(
-                f"https://api.koleo.pl/v2/main/train_timetable/{train_id}/{operating_day}",
-                use_auth=True,
+                f"https://api.koleo.pl/v2/main/user",
+                auth="koleo_token",
+            )
+        ).json()
+
+    async def get_train_timetable(self, train_id: int, operating_day: datetime) -> TrainTimetable:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/train_timetable/{train_id}/{operating_day.strftime("%Y-%m-%d")}",
+                auth="optional_koleo_token",
             )
         ).json()
