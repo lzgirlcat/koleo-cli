@@ -37,6 +37,7 @@ jobs:
         if: env.VERSION!=env.LATEST_RELEASE
         id: create_release
         run: |
+          COMMIT_NAME=$(echo "${{ github.event.head_commit.message }}" | head -n1)
           curl -X POST \
             -f \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -44,7 +45,8 @@ jobs:
             -d '{
               "tag_name": "'"${{ env.VERSION }}"'",
               "target_commitish": "'"${{ github.sha }}"'",
-              "name": "'"${{ github.event.head_commit.message }}"'",
+              "name": "$COMMIT_NAME",
+              "body": ${{ toJSON(github.event.head_commit.message) }},
               "generate_release_notes": true,
               "draft": false,
               "prerelease": false
