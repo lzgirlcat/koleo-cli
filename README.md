@@ -29,6 +29,7 @@
  - ticket display
  - your previous tickets + stats
  - find empty compartments 
+
 additionally you can also use the KoleoAPI wrapper directly in your own projects, all returns are fully typed using `typing.TypedDict`
 
 ## MY(possibly controversial) design choices:
