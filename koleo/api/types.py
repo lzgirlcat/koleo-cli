@@ -445,7 +445,8 @@ class Passenger(t.TypedDict):
     has_big_discount: bool
 
 
-class User(CurrentSession):
+class User(t.TypedDict):
+    email: str
     locale: Placement
     passenger_id: int
     consent_to_terms: bool
@@ -657,3 +658,197 @@ class TrainTimetable(t.TypedDict):
     train_attributes: list[AttributeWithAnnotation]
     real_time_data_recorded_at: str | None
     stops: list[RealtimeTrainStop]
+
+
+class ReservationDataPlace(t.TypedDict):
+    seat_nr: str
+    type: str
+
+class ReservationData(t.TypedDict):
+    carriage_nr: str
+    compartment_type_name: str
+    place_type_category_key: str
+    places: list[ReservationDataPlace]
+    seat_class: t.Literal[1, 2]
+
+class ReservationDataWithTrain(t.TypedDict):
+    train_nr: str
+    reservations_data: list[ReservationDataWithTrain]
+
+
+class TicketOwnerData(t.TypedDict):
+    ticket_ids: list[int]
+    first_name: str
+    last_name: str
+    avatar_url: str # empty if null!?
+
+
+class OrderStatusInfo(t.TypedDict):
+    title: str # np. twój bilet został zwrócony
+    additional_info: str
+    tickets_displayable: bool
+    status_displayable: bool
+
+
+class Order(t.TypedDict):
+    id: int
+    start_station_id: int
+    end_station_id: int
+    start_datetime: str # ISO
+    end_datetime: str # ISO
+    can_be_returned: bool
+    brand_ids: list[int]
+    changes: int
+    price: str # 2137.69
+    returnable_price: str # 420.67
+    status: t.Literal["finished", "refunded", "created", "paid"]
+    connection_id: int
+    payment_id: int
+    is_season: bool
+    is_zonal: bool
+    is_network: bool
+    seats_reservations: list # unknown
+    reservation_data: list[ReservationDataWithTrain]
+    name: str # start_station - end_station, Czarna Białostocka - Książki
+    valid_from: str # ISO
+    valid_to: str # ISO
+    is_renewable: bool
+    is_return_booking_available: bool
+    is_travel_plan_available: bool
+    can_be_exchanged: bool
+    ticket_owners: list[TicketOwnerData]
+    refund_info: str
+    is_refund_amount_unknown: bool
+    has_invoices: bool
+    can_create_invoice: bool
+    is_name_change_available: bool
+    travel_summary: ...
+    luggage_plus_id: int | None
+    status_info: OrderStatusInfo
+    uuid: str
+    requires_start_time: bool
+    should_search_for_return_connection: bool
+    refund_deadline: str # ISO
+    exchange_deadline: str # ISO
+    name_change_deadline: str | None # ISO
+
+
+class PaginatedOrdersResponse(t.TypedDict):
+    current_page: int
+    per_page: int
+    total_results: int
+    orders: list[Order]
+
+
+class PTU(t.TypedDict):
+    type: t.Literal["B"]
+    value: str # 0.21
+    rate: str # 8%
+
+
+class TicketSection(t.TypedDict):
+    relation: str # a - b
+    barnd: str
+    brand_short: str
+    train_class: str # 2
+
+
+class TicketIssuer(t.TypedDict):
+    name: str
+    nip: str
+
+
+class TicketPassengerDataInfo(t.TypedDict):
+    passengers_count: int
+    passengers_info: str
+    discount_code: str
+
+
+class Ticket(t.TypedDict):
+    id: int
+    price: str
+    total_price: str
+    distance: int # 0 for some wtf?
+    tariff_name: str
+    discount_id: int
+    offer_info: str
+    normal_passengers_count: int
+    normal_passengers_info: str
+    discounted_passengers_info: str
+    discounted_passengers_count: int
+    discount_code: str
+    valid_from: str # ISO
+    valid_to: str # ISO
+    ptu: list[PTU]
+    purchase_date: str # ISO
+    emergency_code: str | None
+    extras: list
+    owner_name: str
+    owner_document_number: str | None
+    owner_document_type_id: str | None
+    serial_number: str
+    verification_token: str | None
+    base64_img: str
+    start_station_id: int
+    end_station_id: int
+    sections: list[TicketSection]
+    carrier_id: int
+    carrier_name: str
+    train_class: t.Literal[1, 2]
+    start_datetime: str # ISO
+    end_datetime: str # ISO
+    via_info: str
+    is_network: bool
+    is_season: bool
+    is_return: bool
+    is_zonal: bool
+    extract: str # Bilet ważny 20 minut od 15:18.\nWażny na obszarze aglomeracji Łódzkiej, ograniczonym stacjami: Zgierz Kontrewers, Pabianice, Łódź Andrzejóww.
+    bike_info: ... # can be null
+    seats_info: bool
+    bus_info: str
+    document_notice: bool
+    company_codes: str
+    full_extract: str
+    basic_extract: bool
+    issuer: TicketIssuer
+    discount_ids: list[int]
+    normal_passengers_data_info: TicketPassengerDataInfo
+    discounted_passengers_data_info: list[TicketPassengerDataInfo]
+    discounts_extract: str
+    identity_verifications: list
+
+
+class OrderWithTickets(Order):
+    tickets: list[Ticket]
+    is_wallet_pass_available: bool
+
+
+class YearlySummary(t.TypedDict):
+    year: int
+    token: str
+
+
+class V2User(t.TypedDict):
+    agreed_to_terms: bool
+    privacy_accepted: bool
+    email: str
+    name: str
+    surname: str
+    document_number: str | None
+    document_type_id: str | None
+    birthday: str | None
+    discount_id:  int
+    discount_card_ids: list[int]
+    affiliate_code: str
+    koleo_wallet_balance: str # zł.gr
+    masscollect_account_number: str | None
+    confirmed: bool
+    is_selected: bool
+    company_code: str | None
+    passenger_id: int
+    money_back: bool
+    locale: str
+    consent_to_trade_info: bool | None
+    constriction_notifications: bool
+    user_yearly_summaries:  list[YearlySummary]
+    is_mobywatel_verified: bool

@@ -1,4 +1,5 @@
 import typing as t
+from time import time
 from datetime import datetime
 
 from aiohttp import ClientResponse
@@ -86,6 +87,11 @@ class KoleoAPI(BaseAPIClient):
     async def _require_auth(self) -> t.Literal[True]:
         if self._auth is None:
             raise errors.AuthRequired()
+        if (
+            "_koleo_token_expiry" in self._auth.value
+            and (expiry := self._auth.value["_koleo_token_expiry"] or 0) < time()
+        ):
+            raise errors.AuthExpired(expiry)
         return True
 
     async def get_koleo_token(self) -> str:
@@ -334,9 +340,18 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
-    async def refresh_token(self) -> LoginTokenResponse: ...
+    async def refresh_token(
+        self, refresh_token: str, client_id: t.Literal["web", "android"] | str = "web"
+    ) -> LoginTokenResponse:
+        client_id = WEB_CLIENT_ID if client_id == "web" else ANDROID_CLIENT_ID if client_id == "android" else client_id
+        return (
+            await self.post(
+                f"https://api.koleo.pl/v2/main/oauth/token",
+                json={"refresh_token": refresh_token, "grant_type": "refresh_token", "client_id": client_id},
+            )
+        ).json()
 
-    async def get_user(self) -> User:
+    async def get_user(self) -> V2User:
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/user",
@@ -349,5 +364,43 @@ class KoleoAPI(BaseAPIClient):
             await self.get(
                 f"https://api.koleo.pl/v2/main/train_timetable/{train_id}/{operating_day.strftime("%Y-%m-%d")}",
                 auth="optional_koleo_token",
+            )
+        ).json()
+
+    async def get_active_orders(self) -> list[Order]:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/orders/active",
+                auth="koleo_token",
+            )
+        ).json()
+
+
+    async def get_active_order(self, id: int) -> OrderWithTickets:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/orders/{id}",
+                auth="koleo_token",
+            )
+        ).json()
+
+
+    async def get_inactive_order(self, id: int) -> Order:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/orders/inactive_by_id/{id}",
+                auth="koleo_token",
+            )
+        ).json()
+
+    async def get_inactive_orders(self, page: int = 1, per_page: int = 50) -> PaginatedOrdersResponse:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/paginated_orders/inactive",
+                params={
+                    "page": page,
+                    "per_page": per_page
+                },
+                auth="koleo_token",
             )
         ).json()

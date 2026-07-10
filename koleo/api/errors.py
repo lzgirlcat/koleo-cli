@@ -44,3 +44,6 @@ class errors:
 
     class AuthRequired(Exception):
         pass
+
+    class AuthExpired(AuthRequired):
+        pass

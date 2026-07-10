@@ -307,19 +307,22 @@ def main():
     )
     clear_cache.set_defaults(func="clear_cache")
 
-    login = subparsers.add_parser(
+    auth = subparsers.add_parser("auth", help="Auth related commands")
+    auth_subparser = auth.add_subparsers()
+
+    auth_login = auth_subparser.add_parser(
         "login",
         help="Allows you to login(this is required for trainstats:<)",
     )
-    login.add_argument(
+    auth_login.add_argument(
         "--dump",
         help="dump the response without saving anything",
         action="store_true",
         default=False,
     )
-    login.add_argument("-u", "--username", help="the username/email", type=str, required=False)
-    login.add_argument("-p", "--password", help="the password", type=str, required=False)
-    login.add_argument(
+    auth_login.add_argument("-u", "--username", help="the username/email", type=str, required=False)
+    auth_login.add_argument("-p", "--password", help="the password", type=str, required=False)
+    auth_login.add_argument(
         "-c",
         "--client_id",
         help="the client_id to use. Either web/android or custom value",
@@ -327,7 +330,28 @@ def main():
         required=False,
         default="web",
     )
-    login.set_defaults(func=cli.login, pass_=["dump", "username", "password", "client_id"])
+    auth_login.set_defaults(func=cli.login, pass_=["dump", "username", "password", "client_id"])
+
+    auth_refreshtoken = auth_subparser.add_parser(
+        "refresh",
+        help="Allows you to refresh the auth token manually."
+    )
+    auth_refreshtoken.add_argument(
+        "--dump",
+        help="dump the response without saving anything",
+        action="store_true",
+        default=False,
+    )
+    auth_refreshtoken.add_argument("-t", "--token", help="the refresh token", type=str, required=False)
+    auth_refreshtoken.add_argument(
+        "-c",
+        "--client_id",
+        help="the client_id to use. Either web/android or custom value",
+        type=str,
+        required=False,
+        default="web",
+    )
+    auth_refreshtoken.set_defaults(func=cli.refresh_auth_token, pass_=["dump", "token", "client_id"])
 
     args = parser.parse_args()
 

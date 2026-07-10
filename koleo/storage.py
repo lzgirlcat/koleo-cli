@@ -25,18 +25,24 @@ DEFAULT_CONFIG_PATH = get_adequate_config_path()
 T = t.TypeVar("T")
 
 
+class KoleoAuthLike(t.TypedDict):
+    _koleo_token: str
+    _koleo_refresh_token: t.Optional[str]
+    _koleo_token_expiry: t.Optional[int]
+
+
 @dataclass
 class Auth:
     def __post_init__(self):
         self._storage: "Storage"
-        self._cache: dict | None = None
+        self._cache: KoleoAuthLike | None = None
 
     type: t.Literal["cleartext", "command"]
     data: dict | list
     on_update: list | None = None
 
     @property
-    def value(self) -> dict[str, str]:
+    def value(self) -> KoleoAuthLike:
         if self._cache:
             return self._cache
         elif self.type == "command":
@@ -48,7 +54,7 @@ class Auth:
         elif self.type == "cleartext":
             if not isinstance(self.data, dict):
                 raise ValueError(f"auth.type==cleartext requires data to be a dict of values")
-            self._cache = self.data
+            self._cache = t.cast(KoleoAuthLike, self.data)
         else:
             raise ValueError(f"invalid auth.type: {self.type}")
         return self._cache  # type: ignore
