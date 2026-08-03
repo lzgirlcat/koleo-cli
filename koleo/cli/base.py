@@ -146,6 +146,8 @@ class BaseCli:
             return "SLONECZNY"  # OH MY FUCKING GOD
         if s == "AR":
             return "ARRIVARP"
+        if s == "LEO":
+            return "LEO_PLUS"
         if s not in [i["name"] for i in brands]:
             res = {i["logo_text"]: i["name"] for i in brands}.get(s)
             if not res:
