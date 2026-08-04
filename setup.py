@@ -26,6 +26,8 @@ setuptools.setup(
     entry_points={"console_scripts": ["koleo = koleo.args:main"]},
     install_requires=parse_requirements_file("requirements.txt"),
     include_package_data=True,
+    extras_require={"tickets": ["Pillow"]},
+    py_modules=["koleo"],
     keywords=["koleo", "timetable", "trains", "rail", "poland"],
     project_urls={
         "Source (GitHub)": "https://github.com/lzgirlcat/koleo-cli",

@@ -2,6 +2,8 @@ from argparse import Action
 from datetime import datetime, time, timedelta
 from typing import TYPE_CHECKING, Any
 from copy import deepcopy
+# from secrets import token_bytes
+# from hashlib import sha256
 
 from .api.types import SeatsAvailabilityResponse, TimeDict, TrainComposition
 
@@ -185,25 +187,34 @@ def find_empty_doubles(
 
 
 def duplicate_parser(
-    a: "ArgumentParser",
-    s: "_SubParsersAction[ArgumentParser]",
-    orig_name: str,
+    argument_parser: "ArgumentParser",
+    subparsers: "_SubParsersAction[ArgumentParser]",
     name: str,
-    aliases: list[str],
+    aliases: list[str] = [],
     *,
     help: str | None = None,
     usage: str | None = None,
-    defaults_overwrites: dict[str, Any],
+    defaults_overwrites: dict[str, Any] | None = None,
 ):
-    d = deepcopy(a)
-    d.prog = d.prog.replace(f" {orig_name}", f" {name}")
-    if help is not None:
-        choice_action = s._ChoicesPseudoAction(name, aliases, help)
-        s._choices_actions.append(choice_action)
-    if usage is not None:
-        d.usage = usage
-    if defaults_overwrites:
-        d._defaults = {**d._defaults, **defaults_overwrites}
-    for i in aliases:
-        s._name_parser_map[i] = d
-    return d
+    duplicate = deepcopy(argument_parser)
+    # need for actions to be displayed in help
+    choice_action = subparsers._ChoicesPseudoAction(name, aliases, help)
+    subparsers._choices_actions.append(choice_action)
+
+    duplicate._defaults = {
+        **argument_parser._defaults,
+        **{
+            k.removeprefix("+"): (
+                argument_parser._defaults[key] + v
+                if k.startswith("+") and (key := k.removeprefix("+")) in argument_parser._defaults
+                else v
+            )
+            for k, v in (defaults_overwrites or {}).items()
+        },
+    }
+    return subparsers.add_parser(name, parents=[duplicate], aliases=aliases, usage=usage, add_help=False)
+
+
+# def genereate_koleo_deviceid():
+#    # in the android apk it's generated {android_id}-{first_installation_time}
+#    return sha256(token_bytes(32) + int(datetime.now().timestamp()).to_bytes(8)).hexdigest()

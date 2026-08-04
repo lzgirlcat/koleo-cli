@@ -22,7 +22,8 @@
   - the current implementation allows you to store the credentials as cleartext, or instruct the koleo-cli to execute a command to retrieve them
   - the builtin login function allows you to store the data using secret-tool on linux, or cleartext on other platforms
   - you can create your own auth provider using the `command` auth type:
-    - the program has to output a json k: v dump of cookies to be used, including the `_koleo_token` cookie(the v2 bearer auth token)
+    - the program has to output a json k: v dump of cookies to be used, it must include:
+      - the `_koleo_token` cookie(the v2 bearer auth token)
 
 ### coming soon™️:
  - TUI ticket purchase interface

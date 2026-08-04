@@ -90,7 +90,7 @@ class StationLocalizedToTrain(BaseStationInfo):
     train_id: int
 
 
-class ApiBrand(t.TypedDict):
+class Brand(t.TypedDict):
     id: int
     name: str  # EIC, IC, IR, REG, ...
     display_name: str
@@ -105,6 +105,7 @@ class Carrier(t.TypedDict):
     short_name: str  # KD, PR
     slug: str
     legal_name: str  # PKP Szybka Kolej Miejska w Trójmieście Sp.z o.o.
+    supports_mobywatel_from: str | None
 
 
 class DiscountInfo(t.TypedDict):
@@ -137,7 +138,7 @@ class TrainCalendar(t.TypedDict):
     id: int
     train_nr: int
     train_name: str
-    trainBrand: int
+    trainBrand: int  # why is this snakecase? wth
     dates: list[str]  # Y-M-D
     train_ids: list[int]
     date_train_map: dict[str, int]
@@ -524,20 +525,24 @@ class V3BaseTravelLeg(V3BaseConnectionLeg):
     arrival: str
 
 
-class V3TrainLeg(V3BaseTravelLeg):
+class BasicTrainLeg(V3BaseTravelLeg):
     leg_type: t.Literal["train_leg"]
-    train_id: int
     train_nr: int
     train_name: str
     train_full_name: str
-    operating_day: str  # YYYY-MM-DD
-    commercial_brand_id: int
-    internal_brand_id: int
-    constrictions: list[AttributeWithAnnotation]
     departure_platform: str  # roman
     departure_track: str  # arabic
     arrival_platform: str
     arrival_track: str
+
+
+class V3TrainLeg(BasicTrainLeg):
+    leg_type: t.Literal["train_leg"]
+    train_id: int
+    operating_day: str  # YYYY-MM-DD
+    commercial_brand_id: int
+    internal_brand_id: int
+    constrictions: list[AttributeWithAnnotation]
     stops_before_leg: list[V3LegStop]
     stops_in_leg: list[V3LegStop]
     stops_after_leg: list[V3LegStop]
@@ -664,6 +669,7 @@ class ReservationDataPlace(t.TypedDict):
     seat_nr: str
     type: str
 
+
 class ReservationData(t.TypedDict):
     carriage_nr: str
     compartment_type_name: str
@@ -671,47 +677,77 @@ class ReservationData(t.TypedDict):
     places: list[ReservationDataPlace]
     seat_class: t.Literal[1, 2]
 
+
 class ReservationDataWithTrain(t.TypedDict):
     train_nr: str
-    reservations_data: list[ReservationDataWithTrain]
+    reservations_data: list[ReservationData]
 
 
 class TicketOwnerData(t.TypedDict):
     ticket_ids: list[int]
     first_name: str
     last_name: str
-    avatar_url: str # empty if null!?
+    avatar_url: str  # empty if null!?
 
 
 class OrderStatusInfo(t.TypedDict):
-    title: str # np. twój bilet został zwrócony
+    title: str  # np. twój bilet został zwrócony
     additional_info: str
     tickets_displayable: bool
     status_displayable: bool
+
+
+class OrderTrainLegReservation(t.TypedDict):
+    place_type_category_key: t.Literal["", "seat_1"]
+    carriage_nr: str
+    compartment_type_name: str  # wagon przedziałowy, etc
+    travel_class: str
+    place_numbers: str  # split by \u2013 – for some reason???
+    place_placements: str  # okno, "Okno i Okno (xd)" etc
+
+
+class OrderTrainLeg(BasicTrainLeg):
+    train_icon: t.Literal["generic-train"]
+    train_brand_id: int
+    origin_station_name: str
+    train_final_station_name: str
+    destination_station_name: str
+    no_reservation_message: str | None
+    reservations: list[OrderTrainLegReservation]
+    extras: list[TicketExtra]
+
+
+OrderStatus = t.Literal["finished", "refunded", "created", "paid", "exchanged", "being_refunded", "being_exchanged"]
+
+OrderTravelSummaryLegTypes = OrderTrainLeg | V3WalkLeg | V3StationChangeLeg
+
+
+class OrderTravelSummary(t.TypedDict):
+    legs: list[OrderTravelSummaryLegTypes]
 
 
 class Order(t.TypedDict):
     id: int
     start_station_id: int
     end_station_id: int
-    start_datetime: str # ISO
-    end_datetime: str # ISO
+    start_datetime: str  # ISO
+    end_datetime: str  # ISO
     can_be_returned: bool
     brand_ids: list[int]
     changes: int
-    price: str # 2137.69
-    returnable_price: str # 420.67
-    status: t.Literal["finished", "refunded", "created", "paid"]
+    price: str  # 2137.69
+    returnable_price: str  # 420.67
+    status: OrderStatus
     connection_id: int
     payment_id: int
     is_season: bool
     is_zonal: bool
     is_network: bool
-    seats_reservations: list # unknown
+    seats_reservations: list  # unknown
     reservation_data: list[ReservationDataWithTrain]
-    name: str # start_station - end_station, Czarna Białostocka - Książki
-    valid_from: str # ISO
-    valid_to: str # ISO
+    name: str  # start_station - end_station, Czarna Białostocka - Książki
+    valid_from: str  # ISO
+    valid_to: str  # ISO
     is_renewable: bool
     is_return_booking_available: bool
     is_travel_plan_available: bool
@@ -722,15 +758,15 @@ class Order(t.TypedDict):
     has_invoices: bool
     can_create_invoice: bool
     is_name_change_available: bool
-    travel_summary: ...
+    travel_summary: OrderTravelSummary
     luggage_plus_id: int | None
     status_info: OrderStatusInfo
     uuid: str
     requires_start_time: bool
     should_search_for_return_connection: bool
-    refund_deadline: str # ISO
-    exchange_deadline: str # ISO
-    name_change_deadline: str | None # ISO
+    refund_deadline: str  # ISO
+    exchange_deadline: str  # ISO
+    name_change_deadline: str | None  # ISO
 
 
 class PaginatedOrdersResponse(t.TypedDict):
@@ -742,15 +778,15 @@ class PaginatedOrdersResponse(t.TypedDict):
 
 class PTU(t.TypedDict):
     type: t.Literal["B"]
-    value: str # 0.21
-    rate: str # 8%
+    value: str  # 0.21
+    rate: str  # 8%
 
 
 class TicketSection(t.TypedDict):
-    relation: str # a - b
+    relation: str  # a - b
     barnd: str
     brand_short: str
-    train_class: str # 2
+    train_class: str  # 2
 
 
 class TicketIssuer(t.TypedDict):
@@ -764,11 +800,25 @@ class TicketPassengerDataInfo(t.TypedDict):
     discount_code: str
 
 
+class TicketExtra(t.TypedDict):
+    type: t.Literal["dogs", "bike", "luggage"]
+    value: int  # amount?
+    name: str
+    price: str
+
+
+class TicketIdentityVerification(t.TypedDict):
+    first_name: str
+    last_name: str
+    image: str  # base64
+    verified_discount: int | None  # probably...
+
+
 class Ticket(t.TypedDict):
     id: int
     price: str
     total_price: str
-    distance: int # 0 for some wtf?
+    distance: int  # 0 for some wtf?
     tariff_name: str
     discount_id: int
     offer_info: str
@@ -777,12 +827,12 @@ class Ticket(t.TypedDict):
     discounted_passengers_info: str
     discounted_passengers_count: int
     discount_code: str
-    valid_from: str # ISO
-    valid_to: str # ISO
+    valid_from: str  # ISO
+    valid_to: str  # ISO
     ptu: list[PTU]
-    purchase_date: str # ISO
+    purchase_date: str  # ISO
     emergency_code: str | None
-    extras: list
+    extras: list[TicketExtra]
     owner_name: str
     owner_document_number: str | None
     owner_document_type_id: str | None
@@ -795,17 +845,17 @@ class Ticket(t.TypedDict):
     carrier_id: int
     carrier_name: str
     train_class: t.Literal[1, 2]
-    start_datetime: str # ISO
-    end_datetime: str # ISO
+    start_datetime: str  # ISO
+    end_datetime: str  # ISO
     via_info: str
     is_network: bool
     is_season: bool
     is_return: bool
     is_zonal: bool
-    extract: str # Bilet ważny 20 minut od 15:18.\nWażny na obszarze aglomeracji Łódzkiej, ograniczonym stacjami: Zgierz Kontrewers, Pabianice, Łódź Andrzejóww.
-    bike_info: ... # can be null
-    seats_info: bool
-    bus_info: str
+    extract: str  # Bilet ważny 20 minut od 15:18.\nWażny na obszarze aglomeracji Łódzkiej, ograniczonym stacjami: Zgierz Kontrewers, Pabianice, Łódź Andrzejóww.
+    bike_info: str | None  # can be null
+    seats_info: str | None
+    bus_info: str | None
     document_notice: bool
     company_codes: str
     full_extract: str
@@ -815,11 +865,12 @@ class Ticket(t.TypedDict):
     normal_passengers_data_info: TicketPassengerDataInfo
     discounted_passengers_data_info: list[TicketPassengerDataInfo]
     discounts_extract: str
-    identity_verifications: list
+    identity_verifications: list[TicketIdentityVerification]
 
 
-class OrderWithTickets(Order):
+class FullOrder(Order):
     tickets: list[Ticket]
+    payment_method: str
     is_wallet_pass_available: bool
 
 
@@ -837,10 +888,10 @@ class V2User(t.TypedDict):
     document_number: str | None
     document_type_id: str | None
     birthday: str | None
-    discount_id:  int
+    discount_id: int
     discount_card_ids: list[int]
     affiliate_code: str
-    koleo_wallet_balance: str # zł.gr
+    koleo_wallet_balance: str  # zł.gr
     masscollect_account_number: str | None
     confirmed: bool
     is_selected: bool
@@ -850,5 +901,44 @@ class V2User(t.TypedDict):
     locale: str
     consent_to_trade_info: bool | None
     constriction_notifications: bool
-    user_yearly_summaries:  list[YearlySummary]
+    user_yearly_summaries: list[YearlySummary]
     is_mobywatel_verified: bool
+
+
+class MobywatelState(t.TypedDict):
+    is_ticket_verification_on: bool
+    user_photo: str  # base64
+    verified_discounts: list
+    discounts_to_verify: list
+
+
+class V2UserWithMobywatel(V2User):
+    is_mobywatel_verified: t.Literal[True]
+    mobywatel_state: MobywatelState
+
+
+class GoogleWalletTokenResponse(t.TypedDict):
+    jwt: str
+
+
+class MobywatelVerificationCodeResponse(t.TypedDict):
+    qr_code: str
+    code: str
+    code_deadline: str
+    environment: t.Literal["production"]  # TODO: there may be more
+
+
+class MobywatelVerificationStatusResponseBase(t.TypedDict):
+    status: t.Literal["success", "not_started"]
+    error_messages: list  # TODO: check type
+    last_attempt_at: str | None  # not sure, but it prolly will be null if the user has never started the auth process
+
+
+class MobywatelVerificationSuccessStatus(MobywatelVerificationStatusResponseBase):
+    status: t.Literal["success"]  # TODO: there may be more
+    error_messages: list  # TODO: check type
+    last_attempt_at: str | None  # not sure, but it prolly will be null if the user has never started the auth process
+    message: str
+
+
+MobywatelVerificationStatus = MobywatelVerificationStatusResponseBase | MobywatelVerificationSuccessStatus

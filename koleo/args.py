@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from asyncio import run
 from datetime import datetime
+from time import time
 from inspect import isawaitable
 
 from .api import KoleoAPI
@@ -16,6 +17,7 @@ def main():
     parser.add_argument("-c", "--config", help="Custom config path.", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--ignore_cache", action="store_true", default=False)
 
+    parser.add_argument("--quiet", help="Disable any extra output(auth)", action="store_true", default=False)
     parser.add_argument("--nocolor", help="Disable color output and formatting", action="store_true", default=False)
     subparsers = parser.add_subparsers(title="actions", required=False)  # type: ignore
 
@@ -209,7 +211,6 @@ def main():
     destination_connections = duplicate_parser(
         connections,
         subparsers,
-        "connections",
         "destination_connections",
         ["destinations", "do", "to"],
         help="Allows you to search for connections from favourite_station to x",
@@ -222,11 +223,13 @@ def main():
     v3_connections = duplicate_parser(
         connections,
         subparsers,
-        "connections",
         "v3_connections",
         ["z3"],
         help="Allows you to search for connections from a to b using V3 Koleo Search",
-        defaults_overwrites={"func": cli.connections_view_v3},
+        defaults_overwrites={"func": cli.connections_view_v3, "+pass_": ["minimum_change_duration"]},
+    )
+    v3_connections.add_argument(
+        "-m", "--minimum_change_duration", help="the minimum transfer time", type=int, default=None
     )
 
     train_passenger_stats = subparsers.add_parser(
@@ -332,10 +335,7 @@ def main():
     )
     auth_login.set_defaults(func=cli.login, pass_=["dump", "username", "password", "client_id"])
 
-    auth_refreshtoken = auth_subparser.add_parser(
-        "refresh",
-        help="Allows you to refresh the auth token manually."
-    )
+    auth_refreshtoken = auth_subparser.add_parser("refresh", help="Allows you to refresh the auth token manually.")
     auth_refreshtoken.add_argument(
         "--dump",
         help="dump the response without saving anything",
@@ -353,12 +353,69 @@ def main():
     )
     auth_refreshtoken.set_defaults(func=cli.refresh_auth_token, pass_=["dump", "token", "client_id"])
 
+    auth_me = auth_subparser.add_parser("me", help="Allows you to check basic info about your account.")
+    auth_me.set_defaults(func=cli.get_me)
+
+    tickets = subparsers.add_parser("tickets", help="Ticket related commands")
+    tickets.set_defaults(func=cli.active_tickets)
+    ticket_subparser = tickets.add_subparsers()
+
+    ticket_get = ticket_subparser.add_parser("show", help="Allows you to display your ticket")
+    ticket_get.add_argument(
+        "-n",
+        "--no_codes",
+        help="Don't show the 2D ticket code",
+        action="store_false",
+        default=True,
+        dest="print_codes",
+    )
+    ticket_get.add_argument("selector", type=str)
+    ticket_get.set_defaults(func=cli.show_order, pass_=["selector", "print_codes"])
+
+    duplicate_parser(ticket_get, subparsers, "ticket", help="Allows you to display your ticket")
+
+    ticket_pdf = ticket_subparser.add_parser("pdf", help="Allows you to get the .pdf file for your ticket.")
+    ticket_pdf.add_argument("selector", type=str)
+    ticket_pdf.add_argument("output", type=str, help="either a path or `-` to output to stdout")
+    ticket_pdf.set_defaults(func=cli.get_order_pdf, pass_=["selector", "output"])
+
+    ticket_pass = ticket_subparser.add_parser("pass", help="Allows you to get the .pkpass file for your ticket.")
+    ticket_pass.add_argument("selector", type=str)
+    ticket_pass.add_argument("output", type=str, help="either a path or `-` to output to stdout")
+    ticket_pass.set_defaults(func=cli.get_order_pkpass, pass_=["selector", "output"])
+
+    ticket_google = ticket_subparser.add_parser(
+        "google", help="Allows you to get the google wallet url for your ticket"
+    )
+    ticket_google.add_argument("selector", type=str)
+    auth_refreshtoken.add_argument(
+        "-o",
+        "--try_open",
+        help="try openining the url in a browser/termux-open-url instead of printing it.",
+        action="store_true",
+        default=False,
+    )
+    ticket_google.set_defaults(func=cli.get_order_google_wallet_url, pass_=["selector", "try_open"])
+
+    tickets_history = ticket_subparser.add_parser("history", help="Allows you to browse your historical tickets")
+    tickets_history.add_argument("-p", "--page", help="the page(starts at 1)", type=int, required=False, default=1)
+    tickets_history.add_argument(
+        "-l", "--per_page", help="the results per page(max 50)", type=int, required=False, default=30
+    )
+    tickets_history.set_defaults(func=cli.historical_tickets, pass_=["page", "per_page"])
+
     args = parser.parse_args()
 
     storage = Storage.load(path=args.config, ignore_cache=args.ignore_cache)
     client = KoleoAPI(storage.auth)
 
     async def run_view(func, *args, **kwargs):
+        if storage.auth and (
+            "_koleo_token_expiry" in storage.auth.value
+            and (expiry := storage.auth.value["_koleo_token_expiry"] or 0) < time()
+            and "_koleo_refresh_token" in storage.auth.value
+        ):
+            await cli.refresh_auth_token()
         res = func(*args, **kwargs)
         if isawaitable(res):
             try:
@@ -380,6 +437,11 @@ def main():
     elif hasattr(args, "station") and getattr(args, "save", False):
         storage.favourite_station = args.station
         storage._dirty = True
+    if hasattr(args, "output") and args.output == "-":
+        args.quiet = True
+
+    cli.quiet = args.quiet
+
     if not hasattr(args, "func"):  # todo: fix
         if storage.favourite_station:
             run(run_view(cli.full_departures_view, storage.favourite_station, datetime.now()))

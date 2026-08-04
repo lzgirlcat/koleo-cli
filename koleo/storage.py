@@ -31,6 +31,9 @@ class KoleoAuthLike(t.TypedDict):
     _koleo_token_expiry: t.Optional[int]
 
 
+#    _koleo_deviceid: str
+
+
 @dataclass
 class Auth:
     def __post_init__(self):

@@ -5,14 +5,13 @@ from koleo.api.types import (
     ConnectionDetail,
     V3ConnectionResult,
     V3ConnectionLeg,
-    TrainAttribute,
-    ApiBrand,
+    Brand,
     ExtendedStationInfo,
 )
 from koleo.utils import koleo_time_to_dt
 
 from .base import BaseCli
-from .utils import format_price
+from .utils import format_currency
 
 
 class Connections(BaseCli):
@@ -80,7 +79,7 @@ class Connections(BaseCli):
             date_part = f"{dep.strftime("%d-%m")} " if dep.date() != date.date() else ""
             date_part_2 = f"{arr.strftime("%d-%m")} " if arr.date() != dep.date() else ""
             if price := price_dict.get(i["id"]):
-                price_str = f" [bold red]{format_price(price)}[/bold red]"
+                price_str = f" [bold red]{format_currency(price)}[/bold red]"
             else:
                 price_str = ""
             parts.append(
@@ -221,7 +220,7 @@ class Connections(BaseCli):
             date_part = f"{dep.strftime("%d-%m")} " if dep.date() != date.date() else ""
             date_part_2 = f"{arr.strftime("%d-%m")} " if arr.date() != dep.date() else ""
             if price := price_dict.get(j["uuid"]):
-                price_str = f" [bold red]{format_price(price)}[/bold red]"
+                price_str = f" [bold red]{format_currency(price)}[/bold red]"
             elif only_purchasable:
                 continue
             else:
@@ -302,6 +301,7 @@ class Connections(BaseCli):
         include_prices: bool,
         only_purchasable: bool,
         length: int = 1,
+        minimum_change_duration: int | None = None,
     ):
         include_prices = include_prices or only_purchasable
         start_station, end_station, api_brands, train_attributes, stations = await gather(
@@ -331,6 +331,7 @@ class Connections(BaseCli):
                 list(connection_brands.values()),
                 fetch_date,
                 direct,
+                minimum_change_duration=minimum_change_duration,
             )
             if connections:
                 fetch_date = koleo_time_to_dt(connections[-1]["departure"]) + timedelta(seconds=(30 * 60) + 1)  # wtf
@@ -360,7 +361,7 @@ class Connections(BaseCli):
             date_part = f"{dep.strftime("%d-%m")} " if dep.date() != date.date() else ""
             date_part_2 = f"{arr.strftime("%d-%m")} " if arr.date() != dep.date() else ""
             if price := price_dict.get(i["uuid"]):
-                price_str = f" [bold red]{format_price(price)}[/bold red]"
+                price_str = f" [bold red]{format_currency(price)}[/bold red]"
             elif only_purchasable:
                 continue
             else:
@@ -383,7 +384,7 @@ class Connections(BaseCli):
     def format_leg(
         self,
         leg: V3ConnectionLeg,
-        api_brands: list[ApiBrand],
+        api_brands: list[Brand],
         stations: dict[int, ExtendedStationInfo],
     ) -> str:
         if leg["leg_type"] == "walk_leg":
@@ -394,12 +395,14 @@ class Connections(BaseCli):
             fs = leg["stops_in_leg"][0]
             fs_station = stations[fs["station_id"]]
             fs_dep = koleo_time_to_dt(fs["departure"])
-            fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']} {self.format_position(fs["platform"], fs["track"])}[/purple]"
+            fs_pos = f" {pos}" if (pos := self.format_position(fs["platform"], fs["track"])) else ""
+            fs_info = f"[bold green]{self.ftime(fs_dep)} [/bold green][purple]{fs_station['name']}{fs_pos}[/purple]"
 
             ls = leg["stops_in_leg"][-1]
             ls_station = stations[ls["station_id"]]
             ls_arr = koleo_time_to_dt(ls["arrival"])
-            ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']} {self.format_position(ls["platform"], ls["track"])}[/purple]"
+            ls_pos = f" {pos}" if (pos := self.format_position(ls["platform"], ls["track"])) else ""
+            ls_info = f"[bold green]{self.ftime(ls_arr)} [/bold green][purple]{ls_station['name']}{ls_pos}[/purple]"
 
             return f"[red]{brand}[/red] {leg["train_full_name"]} {fs_info} - {ls_info}"
         elif leg["leg_type"] == "station_change_leg":

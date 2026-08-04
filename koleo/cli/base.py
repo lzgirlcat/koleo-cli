@@ -1,5 +1,6 @@
 import re
 from datetime import datetime
+from typing import overload, Literal
 
 from koleo.api import KoleoAPI
 from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, RealtimeTrainStop, TrainAttribute, TrainTimetable
@@ -14,10 +15,12 @@ class BaseCli:
         no_color: bool = False,
         client: KoleoAPI | None = None,
         storage: Storage | None = None,
+        quiet: bool = False,
     ) -> None:
         self._client = client
         self._storage = storage
         self.no_color = no_color
+        self.quiet = quiet
 
     def init_console(self, no_color: bool | None = None):
         if no_color is not None:
@@ -27,7 +30,13 @@ class BaseCli:
 
             self.console = Console(color_system="standard", highlight=False)
 
+    def indent_lines(self, text: str, indent: int = 2):
+        for line in text.splitlines():
+            self.print(f"{" " * indent}{line}")
+
     def print(self, text: str, *args, **kwargs):
+        if not isinstance(text, str):
+            text = repr(text)
         if not text.strip():
             return
         if self.no_color:
@@ -36,8 +45,8 @@ class BaseCli:
         else:
             self.console.print(text, *args, **kwargs)
 
-    async def error_and_exit(self, text: str, *args, **kwargs):
-        self.print(f"[bold red]{text}[/bold red]", *args, **kwargs)
+    async def error_and_exit(self, text: str, *args, color: bool = True, **kwargs):
+        self.print(f"[bold red]{text}[/bold red]" if color else text, *args, **kwargs)
         await self.client.close()
         exit(2)
 
@@ -111,7 +120,15 @@ class BaseCli:
                 res = f"{track}/{res}"
         return res
 
-    async def get_station(self, station: str) -> ExtendedStationInfo:
+    @overload
+    async def get_station(self, station: str, quit_on_failure: Literal[True] = True) -> ExtendedStationInfo: ...
+
+    @overload
+    async def get_station(
+        self, station: str, quit_on_failure: Literal[False] = False
+    ) -> ExtendedStationInfo | None: ...
+
+    async def get_station(self, station: str, quit_on_failure: bool = True) -> ExtendedStationInfo | None:
         stations = await self.get_stations()
         stations_by_slugs = await self.get_stations_by_slugs()
         if station in self.storage.aliases:
@@ -120,7 +137,9 @@ class BaseCli:
             if res := stations.get(int(station)):
                 return res
             else:
-                await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+                if quit_on_failure:
+                    await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+                return
         else:
             slug = name_to_slug(station)
             if self.storage.auto_głównx and slug in GŁÓWNX_STATIONS:
@@ -130,7 +149,9 @@ class BaseCli:
         try:
             return stations[stations_by_slugs[slug]]
         except KeyError:
-            await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+            if quit_on_failure:
+                await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+            return
 
     async def get_brands(self):
         return self.storage.get_cache("brands") or self.storage.set_cache("brands", await self.client.get_brands())

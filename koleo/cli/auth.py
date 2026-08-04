@@ -1,13 +1,14 @@
 from typing import Literal
 from shutil import which
-from subprocess import run
 from orjson import dumps
+from datetime import datetime
 
 from rich.prompt import Prompt
 
 from koleo.storage import Auth
 from koleo.api.types import LoginTokenResponse
 from .base import BaseCli
+from .utils import format_currency
 
 SECRET_TOOL_UPDATER = ["secret-tool", "store", "--label='Koleo-CLI Auth'", "service", "koleo-cli", "account", "default"]
 SECRET_TOOL_GETTER = ["secret-tool", "lookup", "service", "koleo-cli", "account", "default"]
@@ -40,6 +41,7 @@ class UserManagement(BaseCli):
             return
 
         credentials = self.auth_from_login_response(res, client_id)
+        self.print_auth_info(credentials)
 
         if not self.storage.auth:
             if (
@@ -76,34 +78,46 @@ class UserManagement(BaseCli):
         dump: bool = False,
     ):
         if not self.storage.auth:
-            return await self.error_and_exit("[red bold]auth is not set[/red bold]")
+            return await self.error_and_exit("auth is not set")
         token = refresh_token or self.storage.auth.value["_koleo_refresh_token"]
         if not token:
-            return await self.error_and_exit("[red bold]the refresh token isn't available in the auth provider[/red bold]")
+            return await self.error_and_exit("the refresh token isn't available in the auth provider")
 
-        res = await self.client.refresh_token(
-            token, client_id
-        )
+        self.print(f"refreshing token [bold red]{token[-5:]}[/bold red]")
+
+        res = await self.client.refresh_token(token, client_id)
         if dump:
             self.console.print(dumps(res).decode())
             return
-
         credentials = self.auth_from_login_response(res, client_id)
         self.storage.auth.update(credentials)
+
+        self.print_auth_info(credentials)
+
+    def print_auth_info(self, credentials: dict):
+        has_expiry = "_koleo_token_expiry" in credentials
+        self.print(f"Token: [bold red]{credentials["_koleo_token"][-5:]}[/bold red]", end="" if has_expiry else "\n")
+        if has_expiry:
+            self.print(
+                f", [green]valid until [bold]{datetime.fromtimestamp(credentials["_koleo_token_expiry"]).strftime("%d-%m-%Y %H:%M:%S")}[/bold]"
+            )
 
     async def get_me(
         self,
     ):
         me = await self.client.get_user()
-        print(me)
-        self.print(f"{me["email"]}")
-        self.print(f"{me["masscollect_account_number"]}")
+        self.print(f"Logged in as [green][bold]{me["name"]} {me["surname"]}, {me["email"]}[/bold][/green]")
+        self.print(
+            f"Koleo Wallet: [red underline bold]{format_currency(me["koleo_wallet_balance"])}[/red underline bold]"
+        )
+        if me["masscollect_account_number"]:
+            colors = ["blue", "magenta", "cyan", "yellow"]
+            masscollect = ""
+            for idx, part in enumerate(me["masscollect_account_number"].split(" ")):
+                if idx > len(colors) - 1:
+                    idx = idx - len(colors)
+                masscollect += f" [{colors[idx]}]{part}[/{colors[idx]}]"
 
-    async def active_tickets(
-        self,
-    ):
-        orders = await self.client.get_active_orders()
-        for order in orders:
+            self.print(f"Masscollect:[bold]{masscollect}[/bold]")
 
-            print(order["id"], order["status"])
-
+        self.print_auth_info(self.storage.auth.value)

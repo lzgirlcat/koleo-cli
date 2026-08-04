@@ -15,6 +15,8 @@ if t.TYPE_CHECKING:
 WEB_CLIENT_ID = "83a8978d16b584621b9f9b2f7662a441f51ac39133d4441f34f08d0c79ad5042"
 ANDROID_CLIENT_ID = "626bf916f7a8782e6c1ba0410b784d142867737a9ccd87def8e705b3a039bfe3"
 
+OLD_BASIC_AUTH_IOS = "YzQ0NWNhMjg5NzhlODc2OWU3ZDdmZjFiZDkzNDFlNzJkZGQ0ZWE5NDJkYWU1NzM3NWJjNjk1OWZkMTFjYTMzZDo4NTZkZTFlYmZhNmU5NTUzMzYxZGQ3YTBkN2UzYWUzNWVmYTBjZWM0ZjhkNjMwYmY0MGE4ZDNiM2E0MGMxNmRjYzQ0NWNhMjg5NzhlODc2OWU3ZDdmZjFiZDkzNDFlNzJkZGQ0ZWE5NDJkYWU1NzM3NWJjNjk1OWZkMTFjYTMzZDo4NTZkZTFlYmZhNmU5NTUzMzYxZGQ3YTBkN2UzYWUzNWVmYTBjZWM0ZjhkNjMwYmY0MGE4ZDNiM2E0MGMxNmRj"
+
 
 class KoleoAPI(BaseAPIClient):
     errors = errors
@@ -23,12 +25,12 @@ class KoleoAPI(BaseAPIClient):
         self.base_url = "https://api.koleo.pl"
         self.version = 2
         self.base_headers = {
-            "x-koleo-version": str(self.version),
+            "x-koleo-version": str(self.version),  # 1 = android, 2 = web, 3 = ios?
             "x-koleo-client": "Nuxt-1",
+            # "x-koleo-devicename": "Koleo-CLI",
             "User-Agent": "Koleo-CLI(https://pypi.org/project/koleo-cli)",
         }
         self._auth: "Auth | None" = auth
-        self._auth_valid: bool | None = None
 
     async def _prepare_headers(self, auth: None | str, kwargs: dict):
         headers = {**self.base_headers, **kwargs.pop("headers", {})}
@@ -72,13 +74,47 @@ class KoleoAPI(BaseAPIClient):
             raise self.errors.KoleoNotFound(r.response)
         return r
 
-    async def put(self, path, use_auth: bool = False, *args, **kwargs):
-        headers = {**self.base_headers, **kwargs.pop("headers", {})}
-        if self._auth and use_auth:
-            headers["cookie"] = ("; ".join([f"{k}={v}" for k, v in self._auth.value.items()]),)
-        r = await self.request("PUT", self.base_url + path, headers=headers, *args, **kwargs)
+    async def put(
+        self,
+        path,
+        auth: None | t.Literal["any", "web", "koleo_token", "web+koleo_token", "optional_koleo_token"] = None,
+        *args,
+        **kwargs,
+    ):
+        headers = await self._prepare_headers(auth, kwargs)
+        r = await self.request(
+            "PUT", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
+        )
         if len(r) == 0:
             raise self.errors.KoleoNotFound(r.response)
+        return r
+
+    async def patch(
+        self,
+        path,
+        auth: None | t.Literal["any", "web", "koleo_token", "web+koleo_token", "optional_koleo_token"] = None,
+        *args,
+        **kwargs,
+    ):
+        headers = await self._prepare_headers(auth, kwargs)
+        r = await self.request(
+            "PATCH", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
+        )
+        if len(r) == 0:
+            raise self.errors.KoleoNotFound(r.response)
+        return r
+
+    async def delete(
+        self,
+        path,
+        auth: None | t.Literal["any", "web", "koleo_token", "web+koleo_token", "optional_koleo_token"] = None,
+        *args,
+        **kwargs,
+    ):
+        headers = await self._prepare_headers(auth, kwargs)
+        r = await self.request(
+            "DELETE", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
+        )
         return r
 
     async def exc_getter(self, r: ClientResponse) -> Exception | None:
@@ -185,7 +221,7 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
-    async def get_brands(self) -> list[ApiBrand]:
+    async def get_brands(self) -> list[Brand]:
         # https://koleo.pl/api/v2/main/brands
         return (
             await self.get(
@@ -270,6 +306,8 @@ class KoleoAPI(BaseAPIClient):
         brand_ids: list[int],
         date: datetime,
         direct: bool = False,
+        minimum_change_duration: int
+        | None = None,  # the is weird. for values above 240 the api returns connections that don't match this filter
     ) -> list[V3ConnectionResult]:
         data = {
             "start_id": start_station_id,
@@ -279,6 +317,8 @@ class KoleoAPI(BaseAPIClient):
         }
         if brand_ids:
             data["allowed_brands"] = brand_ids
+        if minimum_change_duration is not None:
+            data["minimum_change_duration"] = minimum_change_duration
         return (
             await self.post("/v2/main/eol_connections/search", json=data, headers={"accept-eol-response-version": "1"})
         ).json()
@@ -351,6 +391,13 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
+    async def revoke_token(self):
+        return (
+            await self.post(
+                f"https://api.koleo.pl/v2/main/oauth/token/revoke",
+            )
+        ).json()
+
     async def get_user(self) -> V2User:
         return (
             await self.get(
@@ -375,8 +422,8 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
-
-    async def get_active_order(self, id: int) -> OrderWithTickets:
+    # this also returns data for inactive orders, but only if they're not refunded/exchanged!
+    async def get_active_order(self, id: int) -> FullOrder:
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/orders/{id}",
@@ -384,8 +431,8 @@ class KoleoAPI(BaseAPIClient):
             )
         ).json()
 
-
-    async def get_inactive_order(self, id: int) -> Order:
+    # works for all orders (presumably)
+    async def get_inactive_order(self, id: int) -> FullOrder:
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/orders/inactive_by_id/{id}",
@@ -397,10 +444,60 @@ class KoleoAPI(BaseAPIClient):
         return (
             await self.get(
                 f"https://api.koleo.pl/v2/main/paginated_orders/inactive",
-                params={
-                    "page": page,
-                    "per_page": per_page
-                },
+                params={"page": page, "per_page": per_page},
                 auth="koleo_token",
             )
         ).json()
+
+    async def get_order_pdf(self, id: int) -> bytes:
+        return await self.get(
+            f"https://api.koleo.pl/v2/main/orders/mobile/{id}.pdf",
+            auth="koleo_token",
+        )
+
+    async def get_order_google_wallet_token(self, id: int) -> GoogleWalletTokenResponse:
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/google_wallet/token/{id}",
+                auth="koleo_token",
+            )
+        ).json()
+
+    async def get_order_apple_wallet_pass(self, id: int) -> bytes:
+        return await self.get(
+            f"https://api.koleo.pl/v2/main/wallet_passes/{id}/",
+            auth="koleo_token",
+        )
+
+    async def get_feature_flags(self, platform: t.Literal["android", "ios", "web"] | None = None):
+        return (
+            await self.get(
+                f"https://api.koleo.pl/v2/main/user/flags/{platform if platform else ""}",
+            )
+        ).json()
+
+    async def get_mobywatel_verification(self):
+        return (
+            await self.get(f"https://api.koleo.pl/v2/main/mobywatel/verifications/identity", auth="koleo_token")
+        ).json()
+
+    async def begin_mobywatel_verification(self) -> MobywatelVerificationCodeResponse:
+        return (
+            await self.post(f"https://api.koleo.pl/v2/main/mobywatel/verifications/identity", auth="koleo_token")
+        ).json()
+
+    async def begin_mobywatel_student_id_verification(self) -> MobywatelVerificationCodeResponse:
+        return (
+            await self.post(
+                f"https://api.koleo.pl/v2/main/mobywatel/verifications/discount/student_id", auth="koleo_token"
+            )
+        ).json()
+
+    async def get_mobywatel_verification_status(self) -> MobywatelVerificationStatus:
+        return (
+            await self.get(f"https://api.koleo.pl/v2/main/mobywatel/verifications/status", auth="koleo_token")
+        ).json()
+
+    async def unregister_mobywatel_verification(self) -> bool:
+        await self.delete(f"https://api.koleo.pl/v2/main/mobywatel/device", auth="koleo_token")
+        return True
