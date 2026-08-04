@@ -14,7 +14,7 @@ def parse_requirements_file(path):
 
 setuptools.setup(
     name="koleo-cli",
-    version="0.2.137.35",
+    version="0.2.137.36",
     description="Koleo CLI",
     long_description=long_description(),
     long_description_content_type="text/markdown",
@@ -27,7 +27,6 @@ setuptools.setup(
     install_requires=parse_requirements_file("requirements.txt"),
     include_package_data=True,
     extras_require={"tickets": ["Pillow"]},
-    py_modules=["koleo"],
     keywords=["koleo", "timetable", "trains", "rail", "poland"],
     project_urls={
         "Source (GitHub)": "https://github.com/lzgirlcat/koleo-cli",
