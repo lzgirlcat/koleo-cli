@@ -714,7 +714,7 @@ class OrderTrainLeg(BasicTrainLeg):
     destination_station_name: str
     no_reservation_message: str | None
     reservations: list[OrderTrainLegReservation]
-    extras: list[TicketExtra]
+    extras: "list[TicketExtra]"
 
 
 OrderStatus = t.Literal["finished", "refunded", "created", "paid", "exchanged", "being_refunded", "being_exchanged"]
