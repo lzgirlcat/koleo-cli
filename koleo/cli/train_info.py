@@ -1,14 +1,16 @@
 from asyncio import gather
 from datetime import datetime, timedelta
 
-from koleo.api.types import TrainCalendar, TrainTimetable, RealtimeTrainStop
-from koleo.utils import koleo_time_to_dt
+from koleo.api.types import TrainCalendar, TrainTimetable, RealtimeTrainStop, V2TrainCalendar, V2TrainCalendarTrain
+from koleo.utils import koleo_time_to_dt, find_continuous_sections
 
 from .base import BaseCli
 
+URL_TEMPLATE = "https://koleo.pl/pociag/{brand}/{name}"
+
 
 class TrainInfo(BaseCli):
-    async def get_train_calendars(self, brand: str, name: str) -> list[TrainCalendar]:
+    async def get_v2_train_calendars(self, brand: str, name: str) -> list[V2TrainCalendar]:
         brand = await self.get_brand_by_shortcut(brand, name=name)
         name = name.lower()
         name_parts = name.split(" ")
@@ -21,40 +23,72 @@ class TrainInfo(BaseCli):
         else:
             raise ValueError("Invalid train name!")
 
-        cache_id = f"tc-{brand}-{number}-{name}"
+        cache_id = f"tc2-{brand}-{number}-{name}"
         try:
             train_calendars = self.storage.get_cache(cache_id) or self.storage.set_cache(
-                cache_id, await self.client.get_train_calendars(brand, number, train_name), ttl=3600
+                cache_id, await self.client.get_v2_train_calendar(brand, number, train_name), ttl=3600
             )
         except self.client.errors.KoleoNotFound:
             await self.error_and_exit(f"Train not found: [underline]nr={number}, name={train_name}[/underline]")
-        return train_calendars["train_calendars"]
+        return train_calendars
 
-    async def train_calendar_view(self, brand: str, name: str):
-        train_calendars = await self.get_train_calendars(brand, name)
-        brands = await self.get_brands()
-        for calendar in train_calendars:
-            brand_obj = next(iter(i for i in brands if i["id"] == calendar["trainBrand"]), {})
-            link = f"https://koleo.pl/pociag/{brand_obj["name"]}/{name.replace(" ", "-", 1).replace(" ", "%20")}"
-            brand = brand_obj.get("logo_text", "")
-            self.print(
-                f"[red][link={link}]{brand}[/red] [bold blue]{calendar['train_nr']}{" "+ v if (v:=calendar.get("train_name")) else ""}[/bold blue]:[/link]"
-            )
-            for k, v in sorted(calendar["date_train_map"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d")):
-                self.print(f"  [bold green]{k}[/bold green]: [purple]{v}[/purple]")
+    async def train_calendar_view(self, brand: str, name: str, grouped: bool = True):
+        train_calendars, brands, stations = await gather(
+            self.get_v2_train_calendars(brand, name),
+            self.get_brands(),
+            self.get_stations()
+        )
+        train = train_calendars[0]["trains"][0]
+        brand_obj = next(iter(i for i in brands if i["id"] == train["commercial_brand_id"]), {})
+        url = URL_TEMPLATE.format(brand=brand_obj["name"], name=train["train_full_name"].replace(" ", "-", 1).replace(" ", "%20"))
+
+        if grouped:
+            groups: dict[int, tuple[V2TrainCalendarTrain, list[str]]] = {}
+            for day in train_calendars:
+                for train in day["trains"]:
+                    key = train["train_id"]
+                    groups.setdefault(key, (train, []))
+                    groups[key][1].append(day["operating_day"])
+            for train, dates in groups.values():
+                self.print(f"[link={url}?date={dates[0]}&train_id={train["train_id"]}][bold]{train["train_id"]}[/bold], [green]{self.ftime(koleo_time_to_dt(train["departure"]))}[/green] [purple]{stations[train["origin_station_id"]]["name"]}[/purple] - [green]{self.ftime(koleo_time_to_dt(train["arrival"]))}[/green] [purple]{stations[train["destination_station_id"]]["name"]}[/purple][/link]:")
+                for i in find_continuous_sections(datetime.strptime(i, "%Y-%m-%d").date() for i in dates): # type: ignore
+                    if i[0] == i[1]:
+                        self.print(f" {i[0]}")
+                    else:
+                        self.print(f" {i[0]} - {i[1]}")
+
+        else:
+            for day in train_calendars:
+                self.print(f"[bold green]{day["operating_day"]}[/bold green]:", end="" if len(day["trains"]) == 1 else "\n")
+                for train in day["trains"]:
+                    self.print(f" [link={url}?date={day["operating_day"]}&train_id={train["train_id"]}][bold]{train["train_id"]}[/bold], [green]{self.ftime(koleo_time_to_dt(train["departure"]))}[/green] [purple]{stations[train["origin_station_id"]]["name"]}[/purple] - [green]{self.ftime(koleo_time_to_dt(train["arrival"]))}[/green] [purple]{stations[train["destination_station_id"]]["name"]}[/purple][/link]")
 
     async def train_info_view(
-        self, brand: str, name: str, date: datetime, closest: bool, show_stations: tuple[str, str] | None = None
+        self, brand: str, name: str, date: datetime, closest: bool, show_stations: tuple[str, str] | None = None, to: str | None = None
     ):
-        train_calendars = await self.get_train_calendars(brand, name)
+        train_calendars = await self.get_v2_train_calendars(brand, name)
+
+        if to or show_stations:
+            if to:
+                to_id = (await self.get_station(to))["id"]
+            elif show_stations:
+                to_id = (await self.get_station(show_stations[-1]))["id"]
+            train_calendars = [
+                {
+                    **i,
+                    "trains": trains
+                } for i in train_calendars if (trains:=[j for j in i["trains"] if j["destination_station_id"] == to_id])
+            ]
+
         if closest:
-            dates = sorted([datetime.strptime(i, "%Y-%m-%d") for i in train_calendars[0]["dates"]])
+            dates = sorted([datetime.strptime(i["operating_day"], "%Y-%m-%d") for i in train_calendars])
             date = next(iter(i for i in dates if i > date)) or next(iter(i for i in reversed(dates) if i < date))
-        if not (train_id := train_calendars[0]["date_train_map"].get(date.strftime("%Y-%m-%d"))):
+        date_train_map = {i["operating_day"]: i["trains"][0] for i in train_calendars}
+        if not (train := date_train_map.get(date.strftime("%Y-%m-%d"))):
             await self.error_and_exit(
                 f"This train doesn't run on the selected date: [underline]{date.strftime("%Y-%m-%d")}[/underline]"
             )
-        await self.train_detail_view(train_id, date=date, show_stations=show_stations)
+        await self.train_detail_view(train["train_id"], date=date, show_stations=show_stations)
 
     async def train_detail_view(self, train_id: int, date: datetime, show_stations: tuple[str, str] | None = None):
         train_timetable = await self.client.get_train_timetable(train_id, date)
@@ -78,9 +112,9 @@ class TrainInfo(BaseCli):
         brands, attributes = await gather(self.get_brands(), self.get_train_attributes())
         brand_obj = next(iter(i for i in brands if i["id"] == train_timetable["commercial_brand_id"]), {})
         brand = brand_obj.get("logo_text", "")
-        url_brand = await self.get_brand_by_shortcut(brand, name=train_timetable["train_full_name"])
 
-        url = f"https://koleo.pl/pociag/{url_brand}/{train_timetable["train_full_name"].replace(" ", "-", 1).replace(" ", "%20")}/{train_timetable["operating_day"]}"
+        url = URL_TEMPLATE.format(brand=brand_obj["name"], name=train_timetable["train_full_name"].replace(" ", "-", 1).replace(" ", "%20"))
+        url += f"?date={train_timetable["operating_day"]}&train_id={train_timetable["train_id"]}"
 
         self.print(f"[link={url}][red]{brand}[/red] [bold blue]{train_timetable["train_full_name"]}[/bold blue][/link]")
 

@@ -105,7 +105,9 @@ def main():
     train_route.add_argument(
         "-s", "--show_stations", help="limit the result to A->B", action="extend", nargs=2, type=str, default=None
     )
-    train_route.set_defaults(func=cli.train_info_view, pass_=["brand", "name", "date", "closest", "show_stations"])
+    train_route.add_argument("-t", "--to", help="select the train by it's destination station. has priority over the B station of show_stations", type=str, default=None)
+
+    train_route.set_defaults(func=cli.train_info_view, pass_=["brand", "name", "date", "closest", "show_stations", "to"])
 
     train_calendar = subparsers.add_parser(
         "traincalendar",
@@ -114,7 +116,15 @@ def main():
     )
     train_calendar.add_argument("brand", help="The brand name", type=str)
     train_calendar.add_argument("name", help="The train name", nargs="+", action=RemainderString)
-    train_calendar.set_defaults(func=cli.train_calendar_view, pass_=["brand", "name"])
+    train_calendar.add_argument(
+        "-n",
+        "--no_groups",
+        help="whether the result dates should be grouped",
+        action="store_false",
+        dest="grouped",
+        default=True,
+    )
+    train_calendar.set_defaults(func=cli.train_calendar_view, pass_=["brand", "name", "grouped"])
 
     train_detail = subparsers.add_parser(
         "traindetail",
