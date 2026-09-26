@@ -56,15 +56,15 @@ class Tickets(BaseCli):
                 datetime.fromisoformat(order["start_datetime"]),
                 datetime.fromisoformat(order["end_datetime"]),
             )
-            date_part_2 = f"{end_dt.strftime("%d-%m")} " if start_dt.date() != end_dt.date() else ""
+            date_part_2 = f"{self.fdate(end_dt)} " if start_dt.date() != end_dt.date() else ""
             self.print(
-                f"[green bold]{start_dt.strftime("%d-%m")}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
+                f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
             )
 
             self.print(f" [green]ID: [bold underline]{order["id"]}[/bold underline][/green]")
             refund_possibility_info = (
-                f", {format_currency(order["returnable_price"])} refundable until {order["refund_deadline"]}"
-                if order["refund_deadline"] and datetime.fromisoformat(order["refund_deadline"]) > now
+                f", [underline yellow]{format_currency(order["returnable_price"])}[/underline yellow] refundable until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+                if order["refund_deadline"] and (until := datetime.fromisoformat(order["refund_deadline"])) > now
                 else ""
             )
             self.print(
@@ -83,12 +83,16 @@ class Tickets(BaseCli):
 
             if not is_unavailable:
                 if order["exchange_deadline"] and (until := datetime.fromisoformat(order["exchange_deadline"])) > now:
-                    self.print(f" Exchangable until: {order["exchange_deadline"]}")
+                    self.print(
+                        f" Exchangable until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+                    )
                 elif (
                     order["name_change_deadline"]
                     and (until := datetime.fromisoformat(order["name_change_deadline"])) > now
                 ):
-                    self.print(f" Name change possible until: {order["name_change_deadline"]}")
+                    self.print(
+                        f" Name change possible until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+                    )
             for i in order["travel_summary"]["legs"]:
                 self.print(" " + self.format_order_leg(i, brands, stations))
 
@@ -130,14 +134,14 @@ class Tickets(BaseCli):
             datetime.fromisoformat(order["start_datetime"]),
             datetime.fromisoformat(order["end_datetime"]),
         )
-        date_part_2 = f"{end_dt.strftime("%d-%m")} " if start_dt.date() != end_dt.date() else ""
+        date_part_2 = f"{self.fdate(end_dt)} " if start_dt.date() != end_dt.date() else ""
         self.print(
-            f"[green bold]{start_dt.strftime("%d-%m")}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
+            f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
         )
 
         refund_possibility_info = (
-            f", {format_currency(order["returnable_price"])} refundable until {order["refund_deadline"]}"
-            if order["refund_deadline"] and datetime.fromisoformat(order["refund_deadline"]) > now
+            f", [underline yellow]{format_currency(order["returnable_price"])}[/underline yellow] refundable until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+            if order["refund_deadline"] and (until := datetime.fromisoformat(order["refund_deadline"])) > now
             else ""
         )
         self.print(f" Paid [red underline]{format_currency(order["price"])}[/red underline]{refund_possibility_info}")
@@ -154,11 +158,15 @@ class Tickets(BaseCli):
 
         if not is_unavailable:
             if order["exchange_deadline"] and (until := datetime.fromisoformat(order["exchange_deadline"])) > now:
-                self.print(f" Exchangable until: {order["exchange_deadline"]}")
+                self.print(
+                    f" Exchangable until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+                )
             elif (
                 order["name_change_deadline"] and (until := datetime.fromisoformat(order["name_change_deadline"])) > now
             ):
-                self.print(f" Name change possible until: {order["name_change_deadline"]}")
+                self.print(
+                    f" Name change possible until [green bold]{self.fdate(until)} {self.ftime(until, seconds=True)}[/green bold]"
+                )
 
         tickets_by_sections: dict[tuple[int, int], list[Ticket]] = {}
         for i in order["tickets"]:
@@ -208,6 +216,8 @@ class Tickets(BaseCli):
 
     async def get_order_pdf(self, selector: str | None, output: str):
         order = await self.get_order_from_selector(selector)
+        if not order:
+            await self.error_and_exit("Order not found :<")
         pdf = await self.client.get_order_pdf(order["id"])
         if output == "-":
             from sys import stdout
@@ -217,10 +227,12 @@ class Tickets(BaseCli):
             with open(output, "wb") as f:
                 f.write(pdf)
 
-    async def get_order_google_wallet_url(self, selector: str | None, try_open: bool = True):
+    async def get_order_google_wallet_url(self, selector: str | None, try_open: bool = False):
         order = await self.get_order_from_selector(selector)
+        if not order:
+            await self.error_and_exit("Order not found :<")
         if not order["is_wallet_pass_available"]:
-            return await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
+            await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
         resp = await self.client.get_order_google_wallet_token(order["id"])
         url = f"https://pay.google.com/gp/v/save/{resp["jwt"]}"
         if try_open:
@@ -239,8 +251,10 @@ class Tickets(BaseCli):
 
     async def get_order_pkpass(self, selector: str | None, output: str):
         order = await self.get_order_from_selector(selector)
+        if not order:
+            await self.error_and_exit("Order not found :<")
         if not order["is_wallet_pass_available"]:
-            return await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
+            await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
         pkpass = await self.client.get_order_apple_wallet_pass(order["id"])
         if output == "-":
             from sys import stdout

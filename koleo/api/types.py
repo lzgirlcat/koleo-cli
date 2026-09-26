@@ -381,7 +381,7 @@ class CurrentSession(t.TypedDict):
 
 
 class TrainCompositonCarriage(t.TypedDict):
-    positon: int
+    position: int
     number: str  # lol
     carriage_type_id: int
     bookable: bool

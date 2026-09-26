@@ -215,6 +215,20 @@ def duplicate_parser(
     return subparsers.add_parser(name, parents=[duplicate], aliases=aliases, usage=usage, add_help=False)
 
 
+def find_continuous_sections(dates: list[date]) -> list[tuple[date, date]]:
+    dates = sorted(set(dates))
+    if not dates:
+        return []
+    sections = []
+    current = previous = dates[0]
+    for i in dates[1:]:
+        if (i - previous).days != 1:
+            sections.append((current, previous))
+            current = i
+        previous = i
+    sections.append((current, previous))
+    return sections
+
 # def genereate_koleo_deviceid():
 #    # in the android apk it's generated {android_id}-{first_installation_time}
 #    return sha256(token_bytes(32) + int(datetime.now().timestamp()).to_bytes(8)).hexdigest()

@@ -70,8 +70,11 @@ class BaseCli:
     def storage(self, storage: Storage):
         self._storage = storage
 
-    def ftime(self, dt: datetime):
-        return dt.strftime("%H:%M:%S") if self.storage.show_seconds else dt.strftime("%H:%M")
+    def ftime(self, dt: datetime, *, seconds: bool = False):
+        return dt.strftime("%H:%M:%S") if seconds or self.storage.show_seconds else dt.strftime("%H:%M")
+
+    def fdate(self, dt: datetime):
+        return dt.strftime("%d-%m-%Y")
 
     async def trains_on_station_table(
         self, trains: list[TrainOnStationInfo], type: int = 1, show_connection_id: bool | None = None
@@ -93,13 +96,13 @@ class BaseCli:
         for idx, stop in enumerate(stops):
             arr = koleo_time_to_dt(stop["arrival"])
             arr_diff = (
-                f"[white underline] +{int((koleo_time_to_dt(stop["actual_arrival"]) - arr).total_seconds() / 60)}m[/white underline]"
+                f" [white underline]{int((koleo_time_to_dt(stop["actual_arrival"]) - arr).total_seconds() / 60):+d}m[/white underline]"
                 if stop["actual_arrival"]
                 else ""
             )
             dep = koleo_time_to_dt(stop["departure"])
             dep_diff = (
-                f"[white underline] +{int((koleo_time_to_dt(stop["actual_departure"]) - dep).total_seconds() / 60)}m[/white underline]"
+                f" [white underline]{int((koleo_time_to_dt(stop["actual_departure"]) - dep).total_seconds() / 60):+d}m[/white underline]"
                 if stop["actual_departure"]
                 else arr_diff
                 if idx == len(stops) - 1
@@ -108,7 +111,7 @@ class BaseCli:
             arr_diff = dep_diff if idx == 0 else arr_diff
             name = stations[stop["station_id"]]["name"]
             self.print(
-                f"[bold green]{self.ftime(arr)}{arr_diff}[/bold green] - [bold red]{self.ftime(dep)}{dep_diff}[/bold red] [purple]{name} {self.format_position(stop["platform"])} [/purple]"
+                f"[bold green]{self.ftime(arr)}{arr_diff}[/bold green] - [bold red]{self.ftime(dep)}{dep_diff}[/bold red] [purple]{name} {self.format_position(stop["platform"], stop["track"])} [/purple]"
             )
 
     def format_position(self, platform: str, track: str | None = None):

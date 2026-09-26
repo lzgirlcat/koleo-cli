@@ -21,7 +21,7 @@ OLD_BASIC_AUTH_IOS = "YzQ0NWNhMjg5NzhlODc2OWU3ZDdmZjFiZDkzNDFlNzJkZGQ0ZWE5NDJkYW
 class KoleoAPI(BaseAPIClient):
     errors = errors
 
-    def __init__(self, auth: "Auth | None") -> None:
+    def __init__(self, auth: "Auth | None" = None) -> None:
         self.base_url = "https://api.koleo.pl"
         self.version = 2
         self.base_headers = {
@@ -264,11 +264,11 @@ class KoleoAPI(BaseAPIClient):
 
     async def get_train_composition(
         self, connection_id: int, train_nr: int, place_type: int
-    ) -> SeatsAvailabilityResponse:
+    ) -> TrainComposition:
         # https://koleo.pl/api/v2/main/train_composition/connection_id/train_nr/place_type
         return (
             await self.get(
-                f"/v2/main/train_composition/{connection_id}/{train_nr}/{place_type}",
+                f"/v2/main/train_composition/{connection_id}/{train_nr}/{place_type}", auth="koleo_token"
             )
         ).json()
 
@@ -501,3 +501,9 @@ class KoleoAPI(BaseAPIClient):
     async def unregister_mobywatel_verification(self) -> bool:
         await self.delete(f"https://api.koleo.pl/v2/main/mobywatel/device", auth="koleo_token")
         return True
+
+    async def get_v2_train_calendar(self, brand_name: str, number: int, name: str | None = None) -> list[V2TrainCalendar]:
+        params = {"brand": brand_name, "nr": number}
+        if name:
+            params["name"] = name.upper()  # WHY!!!!!!!!!
+        return (await self.get("/v2/main/train_timetable/calendar", params=params)).json()
