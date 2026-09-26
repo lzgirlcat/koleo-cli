@@ -942,3 +942,18 @@ class MobywatelVerificationSuccessStatus(MobywatelVerificationStatusResponseBase
 
 
 MobywatelVerificationStatus = MobywatelVerificationStatusResponseBase | MobywatelVerificationSuccessStatus
+
+
+class V2TrainCalendarTrain(t.TypedDict):
+    train_id: int
+    train_full_name: str
+    commercial_brand_id: int
+    origin_station_id: int
+    destination_station_id: int
+    departure: str # iso
+    arrival: str # iso
+
+
+class V2TrainCalendar(t.TypedDict):
+    operating_day: str # yyyy-mm-dd
+    trains: list[V2TrainCalendarTrain]
