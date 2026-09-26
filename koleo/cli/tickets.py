@@ -57,8 +57,10 @@ class Tickets(BaseCli):
                 datetime.fromisoformat(order["end_datetime"]),
             )
             date_part_2 = f"{self.fdate(end_dt)} " if start_dt.date() != end_dt.date() else ""
+            start_station_name = st["name"] if (st:=stations.get(order["start_station_id"])) else order["travel_summary"]["legs"][0].get("origin_station_name") or "NIEZNANA"
+            end_station_name = st["name"] if (st:=stations.get(order["end_station_id"])) else order["travel_summary"]["legs"][-1].get("destination_station_name") or "NIEZNANA"
             self.print(
-                f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
+                f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{start_station_name}[/blue bold] → [blue bold]{end_station_name}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
             )
 
             self.print(f" [green]ID: [bold underline]{order["id"]}[/bold underline][/green]")
@@ -135,8 +137,10 @@ class Tickets(BaseCli):
             datetime.fromisoformat(order["end_datetime"]),
         )
         date_part_2 = f"{self.fdate(end_dt)} " if start_dt.date() != end_dt.date() else ""
+        start_station_name = st["name"] if (st:=stations.get(order["start_station_id"])) else next(iter(i for i in order["travel_summary"]["legs"] if "origin_station_name" in i), {}).get("origin_station_name") or "NIEZNANA"
+        end_station_name = st["name"] if (st:=stations.get(order["end_station_id"])) else next(iter(i for i in reversed(order["travel_summary"]["legs"]) if "destination_station_name" in i), {}).get("destination_station_name") or "NIEZNANA"
         self.print(
-            f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{stations[order["start_station_id"]]["name"]}[/blue bold] → [blue bold]{stations[order["end_station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
+            f"[green bold]{self.fdate(start_dt)}[/green bold] {self.ftime(start_dt)} [blue bold]{start_station_name}[/blue bold] → [blue bold]{end_station_name}[/blue bold] {date_part_2}{self.ftime(end_dt)}"
         )
 
         refund_possibility_info = (
