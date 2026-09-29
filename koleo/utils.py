@@ -1,11 +1,13 @@
 from argparse import Action
 from datetime import datetime, time, timedelta, date
 from typing import TYPE_CHECKING, Any
+from enum import Enum
 from copy import deepcopy
 # from secrets import token_bytes
 # from hashlib import sha256
+from statistics import mean
 
-from .api.types import SeatsAvailabilityResponse, TimeDict, TrainComposition
+from .api.types import SeatsAvailabilityResponse, TimeDict, TrainComposition, CarriageType, CarriageSeat
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser, _SubParsersAction
@@ -139,51 +141,164 @@ BRAND_SEAT_TYPE_MAPPING = {
         19: "Premium",
         20: "Economy Plus",
     },
+    52: {  # leo plus
+        17: "Economy",
+        18: "Business",
+        19: "Premium",
+        20: "Economy Plus",
+    },
 }
 
 
-def find_empty_compartments(seats: SeatsAvailabilityResponse) -> list[tuple[int, int]]:
-    num_taken_seats_in_group: dict[tuple[int, int], int] = {}
+def find_empty_compartments(seats: SeatsAvailabilityResponse) -> list[tuple[str, str]]:
+    num_taken_seats_in_group: dict[tuple[str, str], int] = {}
+    num_seats_in_group: dict[tuple[str, str], int] = {}
     for seat in seats["seats"]:
-        key = (int(seat["carriage_nr"]), int(seat["seat_nr"][:-1]))
+        key = (seat["carriage_nr"], seat["seat_nr"][:-1])
         num_taken_seats_in_group.setdefault(key, 0)
+        num_seats_in_group.setdefault(key, 0)
+        num_seats_in_group[key] += 1
         if seat["state"] != "FREE":
             num_taken_seats_in_group[key] += 1
-    return [k for k, v in num_taken_seats_in_group.items() if v == 0]
+    return [k for k, v in num_taken_seats_in_group.items() if v == 0 and num_seats_in_group[k] == 6]
 
 
 SEAT_GROUPS = {
-    1: 1,
-    3: 1,
-    2: 2,
-    8: 2,
-    5: 3,
-    7: 3,
-    4: 4,
-    6: 4,
+    "1": "1",
+    "3": "1",
+    "2": "2",
+    "8": "2",
+    "5": "3",
+    "7": "3",
+    "4": "4",
+    "6": "4",
+    "0": "5",
+    "9": "5",
 }
 
 
-def get_double_key(seat: int) -> tuple[int, int]:
+def get_double_key(seat: str) -> tuple[str, str]:
     # x1, x3 -> x, 1
     # x2, x8 -> x, 2
     # x5, x7 -> x, 3
     # x4, x6 -> x, 4
-    # x0, x9 nie istnieją!
-    seat_nr = str(seat)
-    return int(seat_nr[:-1]), SEAT_GROUPS[int(seat_nr[-1])]
+    # x0, x9 > x, 5
+    return seat[:-1], SEAT_GROUPS[seat[-1]]
+
+
+def seats_from_double_key(key: tuple[str, str]) -> tuple[str, str]:
+    reverse_seat_groups: dict[str, list[str]] = {}
+    for k, v in SEAT_GROUPS.items():
+        reverse_seat_groups.setdefault(v, [])
+        reverse_seat_groups[v].append(k)
+    endings = reverse_seat_groups[key[1]]
+    return f"{key[0]}{endings[0]}", f"{key[0]}{endings[1]}"
 
 
 def find_empty_doubles(
     seats: SeatsAvailabilityResponse,
-):
-    num_taken_seats_in_double: dict[tuple[int, int, int], int] = {}
+) -> list[tuple[str, str, str]]:
+    num_taken_seats_in_double: dict[tuple[str, str, str], int] = {}
+    num_seats_in_group: dict[tuple[str, str, str], int] = {}
     for seat in seats["seats"]:
-        key = (int(seat["carriage_nr"]), *get_double_key(int(seat["seat_nr"])))
+        key = (seat["carriage_nr"], *get_double_key(seat["seat_nr"]))
         num_taken_seats_in_double.setdefault(key, 0)
+        num_seats_in_group.setdefault(key, 0)
+        num_seats_in_group[key] += 1
         if seat["state"] != "FREE":
             num_taken_seats_in_double[key] += 1
-    return [k for k, v in num_taken_seats_in_double.items() if v == 0]
+    return [(k[0], *seats_from_double_key(k[-2:])) for k, v in num_taken_seats_in_double.items() if v == 0 and num_seats_in_group[k] == 2]
+
+
+def find_empty_quads(
+    seats: SeatsAvailabilityResponse,
+) -> list[tuple[str, str, str, str, str]]:
+    num_taken_seats_in_double: dict[tuple[str, str, str], int] = {}
+    num_seats_in_group: dict[tuple[str, str, str], int] = {}
+    for seat in seats["seats"]:
+        key = (seat["carriage_nr"], *get_double_key(seat["seat_nr"]))
+        num_taken_seats_in_double.setdefault(key, 0)
+        num_seats_in_group.setdefault(key, 0)
+        num_seats_in_group[key] += 1
+        if seat["state"] != "FREE":
+            num_taken_seats_in_double[key] += 1
+    return [(k[0], *seats_from_double_key(k[-2:])) for k, v in num_taken_seats_in_double.items() if v == 0 and num_seats_in_group[k] == 2]
+
+
+class SeatingGroupType(int, Enum):
+    airline_2_plus_2 = 1
+    airline_2_plus_1_right = 2
+    airline_2_plus_1_left = 3
+    airline_2_left = 4
+    airline_2_right = 5
+    airline_1_left = 6
+    airline_1_right = 7
+    compartment_left = 8
+    compartment_right = 9
+    compartment_8_left = 10
+    compartment_8_right = 11
+    airline_1_plus_1 = 12
+
+def group_seats(
+    carriage: CarriageType
+) -> list[tuple[list[str], SeatingGroupType]]:
+    seats_by_row: dict[int, list[CarriageSeat]] = {}
+    for seat in carriage["seats"]:
+        keys = list(seats_by_row.keys())
+        key = seat["x"]
+        for i in keys:
+            if abs(key - i) < 8:
+                key = i
+        seats_by_row.setdefault(key, [])
+        seats_by_row[key].append(seat)
+    seat_type_heights: dict[int, int] = {
+        i["id"]: i["height"] for i in carriage["seat_types"]
+    }
+    out = []
+    for row, seats in seats_by_row.items():
+        num_in_row = len(seats)
+        max_y = max(*[i["y"] for i in seats]) if num_in_row >1 else seats[0]["y"]
+        diffs = list(set([(b["y"] - a["y"]) & ~1 for a, b in zip(seats, seats[1:])]))
+        avg_seat_type_height = mean([seat_type_heights[i["seat_type_id"]] for i in seats])
+        # yandere dev type shit lol
+        if not diffs:
+            if num_in_row == 1:
+                if (max_y * 2) - 200 > 0:
+                    type = SeatingGroupType.airline_1_right
+                else:
+                    type = SeatingGroupType.airline_1_left
+        elif len(diffs) == 1:
+            if num_in_row == 2:
+                if diffs[0] > avg_seat_type_height * 2:
+                    type = SeatingGroupType.airline_1_plus_1
+                elif (max_y * 2) - 200 > 0:
+                    type = SeatingGroupType.airline_2_right
+                else:
+                    type = SeatingGroupType.airline_2_left
+            elif num_in_row == 3:
+                if (max_y * 2) - 200 > 0:
+                    type = SeatingGroupType.compartment_right
+                else:
+                    type = SeatingGroupType.compartment_left
+            elif num_in_row == 4:
+                if (max_y * 2) - 200 > 0:
+                    type = SeatingGroupType.compartment_8_right
+                else:
+                    type = SeatingGroupType.compartment_8_left
+            else:
+                raise ValueError("Failed to match row type :<")
+        else:
+            if num_in_row == 4:
+                type = SeatingGroupType.airline_2_plus_2
+            elif num_in_row == 3:
+                if diffs[0] > diffs[1]:
+                   type = SeatingGroupType.airline_2_plus_1_left
+                else:
+                    type = SeatingGroupType.airline_2_plus_1_right
+            else:
+                raise ValueError("Failed to match row type :<")
+        out.append(([i["nr"] for i in seats], type))
+    return out
 
 
 def duplicate_parser(

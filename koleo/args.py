@@ -263,11 +263,19 @@ def main():
     train_passenger_stats.add_argument(
         "-t", "--type", help="limit the result to seats of a given type", type=str, required=False
     )
+    # train_passenger_stats.add_argument(
+    #     "--detailed",
+    #     dest="mode",
+    #     help="whether to display occupancy status for each seat",
+    #     action="store_true",
+    #     default=False,
+    # )
     train_passenger_stats.add_argument(
-        "--detailed",
+        "-m", "--mode",
+        dest="mode",
         help="whether to display occupancy status for each seat",
-        action="store_true",
-        default=False,
+        type=int,
+        default=0,
     )
     train_passenger_stats.add_argument(
         "--force",
@@ -276,7 +284,7 @@ def main():
         default=False,
     )
     train_passenger_stats.set_defaults(
-        func=cli.train_passenger_stats_view, pass_=["brand", "name", "date", "stations", "type", "detailed", "force"]
+        func=cli.train_seats_view, pass_=["brand", "name", "date", "stations", "type", "mode", "force"]
     )
 
     train_connection_stats = subparsers.add_parser(
