@@ -108,8 +108,10 @@ class TrainInfo(BaseCli):
         train_timetable: TrainTimetable,
         first_stop: RealtimeTrainStop,
         last_stop: RealtimeTrainStop,
+        *,
+        show_basic_route_info: bool = False
     ):
-        brands, attributes = await gather(self.get_brands(), self.get_train_attributes())
+        brands, attributes, stations = await gather(self.get_brands(), self.get_train_attributes(), self.get_stations())
         brand_obj = next(iter(i for i in brands if i["id"] == train_timetable["commercial_brand_id"]), {})
         brand = brand_obj.get("logo_text", "")
 
@@ -126,6 +128,10 @@ class TrainInfo(BaseCli):
             or (route_end.hour == route_start.hour and route_end.minute < route_end.minute)
         ):
             route_end += timedelta(days=1)
+
+        if show_basic_route_info:
+            date_part_2 = self.fdate(route_end) if route_end.date() != route_start.date() else ""
+            self.print(f"  [green bold]{self.fdate(route_start)}[/green bold] {self.ftime(route_start)} [blue bold]{stations[first_stop["station_id"]]["name"]}[/blue bold] → [blue bold]{stations[last_stop["station_id"]]["name"]}[/blue bold] {date_part_2}{self.ftime(route_end)}")
 
         travel_time = int((route_end - route_start).total_seconds())
         self.print(f"[white]  {travel_time//3600}h{int((travel_time % 3600)/60)}m[/white]")

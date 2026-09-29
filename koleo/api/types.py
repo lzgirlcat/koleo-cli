@@ -925,7 +925,7 @@ class MobywatelVerificationCodeResponse(t.TypedDict):
     qr_code: str
     code: str
     code_deadline: str
-    environment: t.Literal["production"]  # TODO: there may be more
+    environment: t.Literal["production", "staging"]  # TODO: there may be more
 
 
 class MobywatelVerificationStatusResponseBase(t.TypedDict):
