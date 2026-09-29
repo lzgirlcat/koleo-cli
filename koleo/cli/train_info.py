@@ -29,7 +29,7 @@ class TrainInfo(BaseCli):
                 cache_id, await self.client.get_v2_train_calendar(brand, number, train_name), ttl=3600
             )
         except self.client.errors.KoleoNotFound:
-            await self.error_and_exit(f"Train not found: [underline]nr={number}, name={train_name}[/underline]")
+            self.error_and_exit(f"Train not found: [underline]nr={number}, name={train_name}[/underline]")
         return train_calendars
 
     async def train_calendar_view(self, brand: str, name: str, grouped: bool = True):
@@ -85,7 +85,7 @@ class TrainInfo(BaseCli):
             date = next(iter(i for i in dates if i > date)) or next(iter(i for i in reversed(dates) if i < date))
         date_train_map = {i["operating_day"]: i["trains"][0] for i in train_calendars}
         if not (train := date_train_map.get(date.strftime("%Y-%m-%d"))):
-            await self.error_and_exit(
+            self.error_and_exit(
                 f"This train doesn't run on the selected date: [underline]{date.strftime("%Y-%m-%d")}[/underline]"
             )
         await self.train_detail_view(train["train_id"], date=date, show_stations=show_stations)

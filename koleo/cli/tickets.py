@@ -130,7 +130,7 @@ class Tickets(BaseCli):
             self.get_order_from_selector(selector), self.get_brands(), self.get_stations()
         )
         if not order:
-            await self.error_and_exit("Order not found :<")
+            self.error_and_exit("Order not found :<")
 
         start_dt, end_dt = (
             datetime.fromisoformat(order["start_datetime"]),
@@ -207,7 +207,7 @@ class Tickets(BaseCli):
                     try:
                         image = load_image(b64decode(ticket["base64_img"]))
                     except ModuleNotFoundError:
-                        await self.error_and_exit(
+                        self.error_and_exit(
                             "[bold red]Pillow is needed for printing 2D ticket codes.[/bold red]\nPlease install Pillow or reinstall koleo-cli with Pillow by running:\npip install koleo-cli\\[tickets]",
                             color=False,
                         )
@@ -221,7 +221,7 @@ class Tickets(BaseCli):
     async def get_order_pdf(self, selector: str | None, output: str):
         order = await self.get_order_from_selector(selector)
         if not order:
-            await self.error_and_exit("Order not found :<")
+            self.error_and_exit("Order not found :<")
         pdf = await self.client.get_order_pdf(order["id"])
         if output == "-":
             from sys import stdout
@@ -234,9 +234,9 @@ class Tickets(BaseCli):
     async def get_order_google_wallet_url(self, selector: str | None, try_open: bool = False):
         order = await self.get_order_from_selector(selector)
         if not order:
-            await self.error_and_exit("Order not found :<")
+            self.error_and_exit("Order not found :<")
         if not order["is_wallet_pass_available"]:
-            await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
+            self.error_and_exit("wallet tickets are unavailable for this carrier:<")
         resp = await self.client.get_order_google_wallet_token(order["id"])
         url = f"https://pay.google.com/gp/v/save/{resp["jwt"]}"
         if try_open:
@@ -256,9 +256,9 @@ class Tickets(BaseCli):
     async def get_order_pkpass(self, selector: str | None, output: str):
         order = await self.get_order_from_selector(selector)
         if not order:
-            await self.error_and_exit("Order not found :<")
+            self.error_and_exit("Order not found :<")
         if not order["is_wallet_pass_available"]:
-            await self.error_and_exit("wallet tickets are unavailable for this carrier:<")
+            self.error_and_exit("wallet tickets are unavailable for this carrier:<")
         pkpass = await self.client.get_order_apple_wallet_pass(order["id"])
         if output == "-":
             from sys import stdout

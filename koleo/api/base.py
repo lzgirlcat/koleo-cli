@@ -40,22 +40,23 @@ class BaseAPIClient(LoggingMixin):
     async def close(self):
         return await self.session.close()
 
-    async def exc_getter(self, r: ClientResponse) -> Exception | None:
+    async def exc_getter(self, r: JsonableData) -> Exception | None:
         return
 
-    async def request(self, method, url: str, *args, retries: int = 4, fail_wait: float = 8, **kwargs) -> JsonableData:
+    async def request(self, method, url: str, *args, retries: int = 0, fail_wait: float = 8, **kwargs) -> JsonableData:
         try:
             async with self.session.request(method, url, *args, **kwargs) as r:
+                data = JsonableData(await r.read(), response=r)
                 if not r.ok:
                     self.dl(r.headers)
                     try:
-                        self.dl(await r.text())
+                        self.dl(data.decode())
                     except UnicodeDecodeError:
                         self.dl("Response is not text!")
-                    if exc := (await self.exc_getter(r)):
+                    if exc := (await self.exc_getter(data)):
                         raise exc
                     r.raise_for_status()
-                return JsonableData(await r.read(), response=r)
+                return data
         except (ClientConnectorError, ClientOSError) as e:
             if retries > 0:
                 await asleep(fail_wait)

@@ -2,11 +2,10 @@ import typing as t
 from time import time
 from datetime import datetime
 
-from aiohttp import ClientResponse
 
 from koleo.api.types import *
 
-from .base import BaseAPIClient
+from .base import BaseAPIClient, JsonableData
 from .errors import errors
 
 if t.TYPE_CHECKING:
@@ -56,7 +55,7 @@ class KoleoAPI(BaseAPIClient):
             "GET", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
         if len(r) == 0:
-            raise self.errors.KoleoNotFound(r.response)
+            raise self.errors.KoleoNotFound(r.response, r)
         return r
 
     async def post(
@@ -70,8 +69,6 @@ class KoleoAPI(BaseAPIClient):
         r = await self.request(
             "POST", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
-        if len(r) == 0:
-            raise self.errors.KoleoNotFound(r.response)
         return r
 
     async def put(
@@ -85,8 +82,6 @@ class KoleoAPI(BaseAPIClient):
         r = await self.request(
             "PUT", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
-        if len(r) == 0:
-            raise self.errors.KoleoNotFound(r.response)
         return r
 
     async def patch(
@@ -100,8 +95,6 @@ class KoleoAPI(BaseAPIClient):
         r = await self.request(
             "PATCH", self.base_url + path if not path.startswith("http") else path, headers=headers, *args, **kwargs
         )
-        if len(r) == 0:
-            raise self.errors.KoleoNotFound(r.response)
         return r
 
     async def delete(
@@ -117,7 +110,7 @@ class KoleoAPI(BaseAPIClient):
         )
         return r
 
-    async def exc_getter(self, r: ClientResponse) -> Exception | None:
+    async def exc_getter(self, r: "JsonableData") -> Exception | None:
         return await self.errors.from_response(r)
 
     async def _require_auth(self) -> t.Literal[True]:

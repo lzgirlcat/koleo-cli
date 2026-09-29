@@ -39,7 +39,7 @@ class Connections(BaseCli):
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
             }
             if not connection_brands:
-                await self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
+                self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
         results: list[ConnectionDetail] = []
         fetch_date = date
         while len(results) < length:
@@ -173,7 +173,7 @@ class Connections(BaseCli):
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
             }
             if not connection_brands:
-                await self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
+                self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
         results: list[V3ConnectionResult] = []
         fetch_date = date
         while len(results) < length:
@@ -321,7 +321,7 @@ class Connections(BaseCli):
                 if i["name"].lower().strip() in brands or i["logo_text"].lower().strip() in brands
             }
             if not connection_brands:
-                await self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
+                self.error_and_exit(f'No brands match: [underline]{", ".join(brands)}[/underline]')
         results: list[V3ConnectionResult] = []
         fetch_date = date
         while len(results) < length:

@@ -78,10 +78,10 @@ class UserManagement(BaseCli):
         dump: bool = False,
     ):
         if not self.storage.auth:
-            await self.error_and_exit("auth is not set")
+            self.error_and_exit("auth is not set")
         token = refresh_token or self.storage.auth.value["_koleo_refresh_token"]
         if not token:
-            await self.error_and_exit("the refresh token isn't available in the auth provider")
+            self.error_and_exit("the refresh token isn't available in the auth provider")
 
         self.print(f"refreshing token [bold red]{token[-5:]}[/bold red]")
 

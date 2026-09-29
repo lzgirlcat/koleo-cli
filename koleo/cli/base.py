@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import overload, Literal
+from typing import overload, Literal, Any
 
 from koleo.api import KoleoAPI
 from koleo.api.types import ExtendedStationInfo, TrainOnStationInfo, RealtimeTrainStop, TrainAttribute, TrainTimetable
@@ -34,7 +34,7 @@ class BaseCli:
         for line in text.splitlines():
             self.print(f"{" " * indent}{line}")
 
-    def print(self, text: str, *args, **kwargs):
+    def print(self, text: str | Any, *args, **kwargs):
         if not isinstance(text, str):
             text = repr(text)
         if not text.strip():
@@ -45,9 +45,8 @@ class BaseCli:
         else:
             self.console.print(text, *args, **kwargs)
 
-    async def error_and_exit(self, text: str, *args, color: bool = True, **kwargs):
+    def error_and_exit(self, text: str, *args, color: bool = True, **kwargs):
         self.print(f"[bold red]{text}[/bold red]" if color else text, *args, **kwargs)
-        await self.client.close()
         exit(2)
 
     @property
@@ -141,7 +140,7 @@ class BaseCli:
                 return res
             else:
                 if quit_on_failure:
-                    await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+                    self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
                 return
         else:
             slug = name_to_slug(station)
@@ -153,7 +152,7 @@ class BaseCli:
             return stations[stations_by_slugs[slug]]
         except KeyError:
             if quit_on_failure:
-                await self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
+                self.error_and_exit(f"Station not found: [underline]{station}[/underline]")
             return
 
     async def get_brands(self):
@@ -175,7 +174,7 @@ class BaseCli:
         if s not in [i["name"] for i in brands]:
             res = {i["logo_text"]: i["name"] for i in brands}.get(s)
             if not res:
-                await self.error_and_exit(f"Invalid brand name not found: [underline]{s},[/underline]")
+                self.error_and_exit(f"Invalid brand name not found: [underline]{s},[/underline]")
             return res
         return s
 
@@ -212,7 +211,7 @@ class BaseCli:
         else:
             station = await self.get_station(a)
             if station["id"] not in stop_ids:
-                await self.error_and_exit(
+                self.error_and_exit(
                     f"Train [underline]{train["train_full_name"]}[/underline] doesn't stop at [underline]{station["name"]}[/underline]"
                 )
             else:
@@ -222,11 +221,11 @@ class BaseCli:
             b_station = stop_ids[b_idx]
             b_idx = stop_ids.index(b_station)
             if b_idx == a_idx:
-                await self.error_and_exit("Station B has to be after station A (-s / --show_stations)")
+                self.error_and_exit("Station B has to be after station A (-s / --show_stations)")
         else:
             station = await self.get_station(b)
             if station["id"] not in stop_ids:
-                await self.error_and_exit(
+                self.error_and_exit(
                     f"Train [underline]{train["train_full_name"]}[/underline] doesn't stop at [underline]{station["name"]}[/underline]"
                 )
             else:

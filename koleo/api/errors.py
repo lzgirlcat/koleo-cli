@@ -1,9 +1,9 @@
 from typing import TYPE_CHECKING
-
+from orjson import loads
 
 if TYPE_CHECKING:
     from aiohttp import ClientResponse, RequestInfo
-
+    from .base import JsonableData
 
 class errors:
     class KoleoAPIException(Exception):
@@ -11,24 +11,25 @@ class errors:
         request: "RequestInfo"
         response: "ClientResponse"
 
-        def __init__(self, response: "ClientResponse", *args: object) -> None:
+        def __init__(self, response: "ClientResponse", data: "JsonableData", *args: object) -> None:
             super().__init__(*args)
             self.status = response.status
             self.request = response.request_info
             self.response = response
+            self.data = data
 
     @staticmethod
-    async def from_response(response: "ClientResponse") -> "KoleoAPIException":
-        if response.status == 404:
-            return errors.KoleoNotFound(response)
-        elif response.status == 401:
-            return errors.KoleoUnauthorized(response)
-        elif response.status == 403:
-            return errors.KoleoForbidden(response)
-        elif response.status == 429:
-            return errors.KoleoRatelimited(response)
+    async def from_response(data: "JsonableData") -> "KoleoAPIException":
+        if data.response.status == 404:
+            return errors.KoleoNotFound(data.response, data)
+        elif data.response.status == 401:
+            return errors.KoleoUnauthorized(data.response, data)
+        elif data.response.status == 403:
+            return errors.KoleoForbidden(data.response, data)
+        elif data.response.status == 429:
+            return errors.KoleoRatelimited(data.response, data)
         else:
-            return errors.KoleoAPIException(response, await response.text())
+            return errors.KoleoAPIException(data.response, data)
 
     class KoleoNotFound(KoleoAPIException):
         pass

@@ -3,6 +3,7 @@ from asyncio import run
 from datetime import datetime
 from time import time
 from inspect import isawaitable
+from orjson import JSONDecodeError
 
 from .api import KoleoAPI
 from .cli import CLI
@@ -420,19 +421,32 @@ def main():
     client = KoleoAPI(storage.auth)
 
     async def run_view(func, *args, **kwargs):
-        if storage.auth and (
-            "_koleo_token_expiry" in storage.auth.value
-            and (expiry := storage.auth.value["_koleo_token_expiry"] or 0) < time()
-            and "_koleo_refresh_token" in storage.auth.value
-        ):
-            await cli.refresh_auth_token()
-        res = func(*args, **kwargs)
-        if isawaitable(res):
+        try:
+
+            if storage.auth and (
+                "_koleo_token_expiry" in storage.auth.value
+                and (expiry := storage.auth.value["_koleo_token_expiry"] or 0) < time()
+                and "_koleo_refresh_token" in storage.auth.value
+            ):
+                await cli.refresh_auth_token()
+            res = func(*args, **kwargs)
+            if isawaitable(res):
+                try:
+                    await res
+                except SystemExit:
+                    ...
+        except KoleoAPI.errors.KoleoAPIException as e:
+            out = ["Koleo API returned an error :<"]
             try:
-                await res
-            except SystemExit:
-                ...
-        await client.close()
+                data = e.data.json()
+                out.append(f"\"{data["message"]}\"")
+            except JSONDecodeError:
+                out.append(e.data.decode())
+            if id:=e.response.headers.get("x-request-id"):
+                out.append(f"x-request-id: {id}")
+            cli.error_and_exit("\n".join(*out))
+        finally:
+            await client.close()
 
     cli.client, cli.storage = client, storage
     cli.init_console(args.nocolor)
