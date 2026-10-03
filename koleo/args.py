@@ -452,7 +452,7 @@ def main():
                 out.append(e.data.decode())
             if id:=e.response.headers.get("x-request-id"):
                 out.append(f"x-request-id: {id}")
-            cli.error_and_exit("\n".join(*out))
+            cli.error_and_exit("\n".join(out))
         finally:
             await client.close()
 
