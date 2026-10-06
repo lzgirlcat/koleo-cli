@@ -425,7 +425,6 @@ class Seats(TrainInfo):
             special_types = []
             if is_reverse:
                 row = reverser(row)
-                seats = reversed(seats)
             for i in seats:
                 seat = carriage_seats.get(str(i))
                 if not seat:

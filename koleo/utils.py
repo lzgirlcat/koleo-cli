@@ -259,6 +259,10 @@ def group_seats(
         num_in_row = len(seats)
         max_y = max(*[i["y"] for i in seats]) if num_in_row >1 else seats[0]["y"]
         diffs = list(set([(b["y"] - a["y"]) & ~1 for a, b in zip(seats, seats[1:])]))
+        simplified_diffs = []
+        for diff in diffs:
+            if not simplified_diffs or abs(simplified_diffs[-1] - diff) > 3:
+                simplified_diffs.append(diff)
         avg_seat_type_height = mean([seat_type_heights[i["seat_type_id"]] for i in seats])
         # yandere dev type shit lol
         if not diffs:
@@ -267,7 +271,7 @@ def group_seats(
                     type = SeatingGroupType.airline_1_right
                 else:
                     type = SeatingGroupType.airline_1_left
-        elif len(diffs) == 1:
+        elif len(simplified_diffs) == 1:
             if num_in_row == 2:
                 if diffs[0] > avg_seat_type_height * 2:
                     type = SeatingGroupType.airline_1_plus_1
@@ -276,7 +280,7 @@ def group_seats(
                 else:
                     type = SeatingGroupType.airline_2_left
             elif num_in_row == 3:
-                if (max_y * 2) - 200 > 0:
+                if (max_y * 2) - 170 >= 0:
                     type = SeatingGroupType.compartment_right
                 else:
                     type = SeatingGroupType.compartment_left
@@ -297,7 +301,7 @@ def group_seats(
                     type = SeatingGroupType.airline_2_plus_1_right
             else:
                 raise ValueError("Failed to match row type :<")
-        out.append(([i["nr"] for i in seats], type))
+        out.append(([i["nr"] for i in sorted(seats, key=lambda x: x["y"], reverse=True)], type))
     return out
 
 
